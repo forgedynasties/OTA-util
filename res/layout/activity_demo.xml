@@ -18,7 +18,22 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical">
+            
+            <EditText
+                android:id="@+id/url"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:hint="Enter server URL for update.zip"
+                android:inputType="textUri" />
 
+            <Button
+                android:id="@+id/download"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Download Update"
+                android:onClick="download" />
 
             <TextView
                 android:textSize="20dp"
@@ -27,9 +42,8 @@
                 android:id="@+id/dest"
                 android:textColor="@android:color/background_dark"
                 android:layout_marginTop="25dp"
-                android:hint="Enter Desitantion Path"
+                android:hint="Destination Path"
                 android:layout_gravity="center_horizontal" />
-
 
             <Button
                 android:visibility="gone"
@@ -40,15 +54,15 @@
                 android:layout_marginTop="25dp"
                 android:layout_gravity="center_horizontal"
                 android:onClick="down"/>
+                
             <TextView
-
                 android:textSize="20dp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:id="@+id/info"
                 android:textColor="@android:color/background_dark"
                 android:layout_marginTop="25dp"
-                android:hint="Enter Desitantion Path"
+                android:hint="Status Information"
                 android:layout_gravity="center_horizontal" />
 
             <Button
