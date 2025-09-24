@@ -8,5 +8,7 @@ LOCAL_CERTIFICATE := platform
 LOCAL_PRIVILEGED_MODULE := true  
 LOCAL_DEX_PREOPT := false
 LOCAL_PRIVATE_PLATFORM_APIS := true
+LOCAL_MODULE_PATH := /system/priv-app
+
 
 include $(BUILD_PACKAGE)
