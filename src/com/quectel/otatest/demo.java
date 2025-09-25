@@ -29,11 +29,22 @@ import android.provider.Settings;
 import android.os.Environment;
 import android.net.Uri;
 import android.content.pm.PackageManager;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 public class demo extends Activity {
     TextView destEdit,info;
     EditText urlEdit;
     Button downloadBtn;
+    
+    // Shell components
+    EditText shellCommandEdit;
+    TextView shellOutputText;
+    Button testShellBtn;
+    Button executeShellBtn;
+    Button checkPermissionsBtn;
+    Button changePermissionsBtn;  // New button
+    
     //String dest=Environment.getExternalStorageDirectory().getPath()+"/update.zip";
     String dest = "/data/ota_package/update.zip";
     WakeLock mWakelock;
@@ -127,6 +138,15 @@ public class demo extends Activity {
         info=(TextView) findViewById(R.id.info);
         urlEdit=(EditText) findViewById(R.id.url);
         downloadBtn=(Button) findViewById(R.id.download);
+        
+        // Initialize shell components
+        shellCommandEdit = (EditText) findViewById(R.id.shell_command);
+        shellOutputText = (TextView) findViewById(R.id.shell_output);
+        testShellBtn = (Button) findViewById(R.id.test_shell);
+        executeShellBtn = (Button) findViewById(R.id.execute_shell);
+        checkPermissionsBtn = (Button) findViewById(R.id.check_permissions);
+        changePermissionsBtn = (Button) findViewById(R.id.change_permissions);  // New button
+        
         destEdit.setText(dest);
         
         Log.i(TAG, "onCreate - UI components initialized, destination: " + dest);
@@ -143,23 +163,15 @@ public class demo extends Activity {
             return;
         }
         
-        // Remove existing update.zip files in /data/ota_package/
-        Log.d(TAG, "downloadUpdate - Removing existing update files");
-        removeExistingUpdateFiles();
+        // Just overwrite update.zip if it exists - don't remove other files
+        Log.d(TAG, "downloadUpdate - Will overwrite existing update.zip");
         
-        // Create directory with proper permissions
+        // Create directory if it doesn't exist (don't change existing permissions)
         File otaDir = new File("/data/ota_package");
         Log.d(TAG, "downloadUpdate - Checking directory: " + otaDir.getAbsolutePath());
         if(!otaDir.exists()){
             Log.i(TAG, "downloadUpdate - Creating OTA directory");
             otaDir.mkdirs();
-            // Set directory permissions
-            try {
-                Runtime.getRuntime().exec("chmod 755 /data/ota_package");
-                Log.i(TAG, "downloadUpdate - Set directory permissions: chmod 755 /data/ota_package");
-            } catch (Exception e) {
-                Log.e(TAG, "downloadUpdate - Failed to set directory permissions", e);
-            }
         } else {
             Log.d(TAG, "downloadUpdate - Directory already exists");
         }
@@ -256,9 +268,6 @@ public class demo extends Activity {
                     Log.w(TAG, "setFilePermissions - chmod command returned: " + result);
                 }
                 
-                // Method 3: Alternative with more specific permissions
-                // Runtime.getRuntime().exec("chmod 664 " + filePath);  // rw-rw-r--
-                
             } else {
                 Log.e(TAG, "setFilePermissions - File does not exist: " + filePath);
             }
@@ -267,30 +276,6 @@ public class demo extends Activity {
         }
     }
     
-    void removeExistingUpdateFiles(){
-        Log.d(TAG, "removeExistingUpdateFiles - Checking for existing update files");
-        File otaDir = new File("/data/ota_package");
-        if(otaDir.exists()){
-            File[] files = otaDir.listFiles();
-            if(files != null){
-                Log.d(TAG, "removeExistingUpdateFiles - Found " + files.length + " files in directory");
-                for(File file : files){
-                    if(file.getName().equals("update.zip")){
-                        if(file.delete()){
-                            Log.i(TAG, "removeExistingUpdateFiles - Removed existing update.zip file");
-                        } else {
-                            Log.w(TAG, "removeExistingUpdateFiles - Failed to remove existing update.zip file");
-                        }
-                    }
-                }
-            } else {
-                Log.d(TAG, "removeExistingUpdateFiles - Directory is empty or cannot list files");
-            }
-        } else {
-            Log.d(TAG, "removeExistingUpdateFiles - OTA directory does not exist");
-        }
-    }
-
     void update2(){
         Log.i(TAG, "update2 - Starting update process");
         File file = new File(dest);
@@ -350,6 +335,88 @@ public class demo extends Activity {
         mWakelock.release();
     }
 
+    // Shell command execution
+    private String executeShellCommand(String command) {
+        Log.i(TAG, "executeShellCommand - Executing: " + command);
+        StringBuilder output = new StringBuilder();
+        try {
+            Process process = Runtime.getRuntime().exec(command);
+            
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+            
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append("\n");
+            }
+            
+            // Also read error stream
+            while ((line = errorReader.readLine()) != null) {
+                output.append("ERROR: ").append(line).append("\n");
+            }
+            
+            int exitCode = process.waitFor();
+            output.append("Exit code: ").append(exitCode);
+            
+            Log.d(TAG, "executeShellCommand - Command completed with exit code: " + exitCode);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "executeShellCommand - Failed to execute command", e);
+            output.append("Exception: ").append(e.getMessage());
+        }
+        
+        return output.toString();
+    }
+
+    private void checkFilePermissions() {
+        Log.i(TAG, "checkFilePermissions - Checking update.zip permissions");
+        StringBuilder permInfo = new StringBuilder();
+        
+        try {
+            File updateFile = new File(dest);
+            if (updateFile.exists()) {
+                permInfo.append("=== update.zip File Info ===\n");
+                permInfo.append("Path: ").append(dest).append("\n");
+                permInfo.append("Size: ").append(updateFile.length()).append(" bytes\n");
+                permInfo.append("Readable: ").append(updateFile.canRead()).append("\n");
+                permInfo.append("Writable: ").append(updateFile.canWrite()).append("\n");
+                permInfo.append("Executable: ").append(updateFile.canExecute()).append("\n");
+                
+                // Get detailed permissions via shell
+                String lsOutput = executeShellCommand("ls -la " + dest);
+                permInfo.append("ls -la output:\n").append(lsOutput).append("\n");
+                
+            } else {
+                permInfo.append("update.zip does not exist\n");
+            }
+            
+            // Check directory permissions
+            File otaDir = new File("/data/ota_package");
+            permInfo.append("\n=== Directory Info ===\n");
+            permInfo.append("Directory exists: ").append(otaDir.exists()).append("\n");
+            if (otaDir.exists()) {
+                permInfo.append("Directory readable: ").append(otaDir.canRead()).append("\n");
+                permInfo.append("Directory writable: ").append(otaDir.canWrite()).append("\n");
+                permInfo.append("Directory executable: ").append(otaDir.canExecute()).append("\n");
+                
+                String dirLsOutput = executeShellCommand("ls -la /data/ota_package/");
+                permInfo.append("Directory ls -la output:\n").append(dirLsOutput);
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "checkFilePermissions - Error checking permissions", e);
+            permInfo.append("Error: ").append(e.getMessage());
+        }
+        
+        final String finalPermInfo = permInfo.toString();
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                shellOutputText.setText(finalPermInfo);
+            }
+        });
+    }
+
     public void download(View v){
         Log.i(TAG, "download - Download button clicked");
         downloadBtn.setEnabled(false);
@@ -392,6 +459,134 @@ public class demo extends Activity {
             public void run() { 
                 Log.d(TAG, "update - Starting update thread");
                 update2(); 
+            }
+        }).start();
+    }
+
+    // Shell button handlers
+    public void testShell(View v){
+        Log.i(TAG, "testShell - Test Shell button clicked");
+        new Thread(new Runnable() {
+            public void run() {
+                String output = executeShellCommand("echo 'shell test' > /sdcard/shell_test.txt && cat /sdcard/shell_test.txt");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        shellOutputText.setText("Shell Test Output:\n" + output);
+                    }
+                });
+            }
+        }).start();
+    }
+
+    public void executeShell(View v){
+        Log.i(TAG, "executeShell - Execute Shell button clicked");
+        String command = shellCommandEdit.getText().toString().trim();
+        if (command.isEmpty()) {
+            shellOutputText.setText("Please enter a command");
+            return;
+        }
+        
+        new Thread(new Runnable() {
+            public void run() {
+                String output = executeShellCommand(command);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        shellOutputText.setText("Command: " + command + "\n\nOutput:\n" + output);
+                    }
+                });
+            }
+        }).start();
+    }
+
+    public void checkPermissions(View v){
+        Log.i(TAG, "checkPermissions - Check Permissions button clicked");
+        new Thread(new Runnable() {
+            public void run() {
+                checkFilePermissions();
+            }
+        }).start();
+    }
+
+    // New method to change file permissions
+    private void changeFilePermissions() {
+        Log.i(TAG, "changeFilePermissions - Attempting to change update.zip permissions to 644");
+        StringBuilder result = new StringBuilder();
+        
+        try {
+            File updateFile = new File(dest);
+            if (!updateFile.exists()) {
+                result.append("ERROR: update.zip does not exist at: ").append(dest).append("\n");
+                Log.w(TAG, "changeFilePermissions - File does not exist: " + dest);
+            } else {
+                result.append("=== Changing Permissions for update.zip ===\n");
+                result.append("File: ").append(dest).append("\n");
+                result.append("Size: ").append(updateFile.length()).append(" bytes\n\n");
+                
+                // Check current permissions first
+                result.append("Current permissions:\n");
+                String currentPerms = executeShellCommand("ls -la " + dest);
+                result.append(currentPerms).append("\n");
+                
+                // Method 1: Try Java API first
+                result.append("--- Method 1: Java API ---\n");
+                boolean readable = updateFile.setReadable(true, false);  // readable by all
+                boolean writable = updateFile.setWritable(true, false);  // writable by all
+                result.append("setReadable(true, false): ").append(readable).append("\n");
+                result.append("setWritable(true, false): ").append(writable).append("\n\n");
+                
+                Log.d(TAG, "changeFilePermissions - Java API: readable=" + readable + ", writable=" + writable);
+                
+                // Method 2: Try chmod 644
+                result.append("--- Method 2: chmod 644 ---\n");
+                String chmodOutput = executeShellCommand("chmod 644 " + dest);
+                result.append("chmod 644 output:\n").append(chmodOutput).append("\n");
+                
+                // Method 3: Try chmod 664 (more permissive)
+                result.append("--- Method 3: chmod 664 ---\n");
+                String chmod664Output = executeShellCommand("chmod 664 " + dest);
+                result.append("chmod 664 output:\n").append(chmod664Output).append("\n");
+                
+                // Method 4: Try to change ownership (in case needed)
+                result.append("--- Method 4: chown system:system ---\n");
+                String chownOutput = executeShellCommand("chown system:system " + dest);
+                result.append("chown output:\n").append(chownOutput).append("\n");
+                
+                // Verify final permissions
+                result.append("--- Final Verification ---\n");
+                String finalPerms = executeShellCommand("ls -la " + dest);
+                result.append("Final permissions:\n").append(finalPerms).append("\n");
+                
+                // Check Java API results
+                result.append("Java API check:\n");
+                result.append("canRead(): ").append(updateFile.canRead()).append("\n");
+                result.append("canWrite(): ").append(updateFile.canWrite()).append("\n");
+                result.append("canExecute(): ").append(updateFile.canExecute()).append("\n");
+                
+                Log.i(TAG, "changeFilePermissions - Permission change attempt completed");
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "changeFilePermissions - Error changing permissions", e);
+            result.append("Exception: ").append(e.getMessage()).append("\n");
+        }
+        
+        final String finalResult = result.toString();
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                shellOutputText.setText(finalResult);
+            }
+        });
+    }
+
+    // New button handler
+    public void changePermissions(View v){
+        Log.i(TAG, "changePermissions - Change Permissions button clicked");
+        new Thread(new Runnable() {
+            public void run() {
+                changeFilePermissions();
             }
         }).start();
     }
