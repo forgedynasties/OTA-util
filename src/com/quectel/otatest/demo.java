@@ -17,7 +17,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.EditText;
 import android.widget.Button;
-import com.quectel.otatest.UpdateParser;
+import android.widget.ListView;
+import android.widget.ArrayAdapter;
+import android.widget.AdapterView;
+import android.content.Intent;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -31,11 +36,19 @@ import android.net.Uri;
 import android.content.pm.PackageManager;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 
 public class demo extends Activity {
     TextView buildIdText, statusText;
     EditText urlEdit;
-    Button installBtn;
+    Button installBtn, refreshBtn;
+    ListView updatesList;
+    
+    private ArrayAdapter<String> updatesAdapter;
+    private List<String> availableUpdates = new ArrayList<>();
+    private String selectedUpdate = "";
+    private static final String SERVER_URL = "http://10.32.1.11:8080/";
     
     String downloadPath = "/storage/emulated/0/update.zip";
     String installPath = "/data/ota_package/update.zip";
@@ -82,6 +95,18 @@ public class demo extends Activity {
         }
     };
     
+    private BroadcastReceiver updateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if ("com.quectel.otatest.UPDATES_FOUND".equals(intent.getAction())) {
+                ArrayList<String> updates = intent.getStringArrayListExtra("updates");
+                if (updates != null) {
+                    runOnUiThread(() -> updateAvailableUpdates(updates));
+                }
+            }
+        }
+    };
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -96,12 +121,70 @@ public class demo extends Activity {
         statusText = (TextView) findViewById(R.id.status);
         urlEdit = (EditText) findViewById(R.id.url);
         installBtn = (Button) findViewById(R.id.install_btn);
+        refreshBtn = (Button) findViewById(R.id.refresh_btn);
+        updatesList = (ListView) findViewById(R.id.updates_list);
+        
+        // Setup updates list
+        updatesAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_single_choice, availableUpdates);
+        updatesList.setAdapter(updatesAdapter);
+        updatesList.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+        updatesList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                selectedUpdate = availableUpdates.get(position);
+                urlEdit.setText(SERVER_URL + selectedUpdate);
+                installBtn.setEnabled(true);
+            }
+        });
         
         // Display current build ID
         String buildId = Build.ID + " (" + Build.VERSION.RELEASE + ")";
         buildIdText.setText("Current Build: " + buildId);
         
+        // Start the update service
+        Intent serviceIntent = new Intent(this, UpdateService.class);
+        startForegroundService(serviceIntent);
+        
+        // Register broadcast receiver
+        IntentFilter filter = new IntentFilter("com.quectel.otatest.UPDATES_FOUND");
+        registerReceiver(updateReceiver, filter);
+        
+        // Check if started from notification
+        handleNotificationIntent();
+        
         Log.i(TAG, "onCreate - Initialized with build: " + buildId);
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (updateReceiver != null) {
+            unregisterReceiver(updateReceiver);
+        }
+    }
+    
+    private void handleNotificationIntent() {
+        Intent intent = getIntent();
+        if (intent != null && intent.hasExtra("available_updates")) {
+            ArrayList<String> updates = intent.getStringArrayListExtra("available_updates");
+            if (updates != null) {
+                updateAvailableUpdates(updates);
+            }
+        }
+    }
+    
+    private void updateAvailableUpdates(List<String> updates) {
+        availableUpdates.clear();
+        availableUpdates.addAll(updates);
+        updatesAdapter.notifyDataSetChanged();
+        showStatus("Found " + updates.size() + " updates");
+    }
+    
+    public void refreshUpdates(View v) {
+        // Trigger immediate update check
+        Intent broadcast = new Intent("com.quectel.otatest.REFRESH_UPDATES");
+        sendBroadcast(broadcast);
+        showStatus("Refreshing updates...");
     }
 
     public void installUpdate(View v) {

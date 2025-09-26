@@ -25,22 +25,6 @@
         android:layout_marginBottom="30dp"
         android:gravity="center" />
 
-    <EditText
-        android:id="@+id/url"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="20dp"
-        android:hint="Enter server URL for update.zip"
-        android:inputType="textUri" />
-
-    <Button
-        android:id="@+id/install_btn"
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:text="Install Update"
-        android:textSize="18sp"
-        android:onClick="installUpdate" />
-
     <TextView
         android:id="@+id/status"
         android:layout_width="match_parent"
@@ -50,5 +34,49 @@
         android:textColor="@android:color/background_dark"
         android:gravity="center"
         android:text="Ready to install update" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="Available Updates:"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <ListView
+        android:id="@+id/updates_list"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:layout_marginTop="10dp" />
+
+    <Button
+        android:id="@+id/refresh_btn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="Refresh Updates"
+        android:onClick="refreshUpdates" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="Or enter custom URL:"
+        android:textSize="14sp" />
+
+    <EditText
+        android:id="@+id/url"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:hint="http://10.32.1.11:8080/update.zip" />
+
+    <Button
+        android:id="@+id/install_btn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="Install Update"
+        android:onClick="installUpdate" />
 
 </LinearLayout>
