@@ -162,8 +162,9 @@ public class demo extends Activity {
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.connect();
             
-            if(connection.getResponseCode() != HttpURLConnection.HTTP_OK){
-                runOnUiThread(() -> showStatus("Server error: " + connection.getResponseCode()));
+            int responseCode = connection.getResponseCode();
+            if(responseCode != HttpURLConnection.HTTP_OK){
+                runOnUiThread(() -> showStatus("Server error: " + responseCode));
                 return false;
             }
             
