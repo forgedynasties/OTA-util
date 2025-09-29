@@ -32,6 +32,8 @@ public class UpdateService extends Service {
     private static final int NOTIFICATION_ID = 1001;
     private static final int CHECK_INTERVAL = 60000; // 1 minute
     private static final String SERVER_URL = "http://10.32.1.11:8080";
+    private static final String UPDATE_FILE = "update.zip";
+    private static final String FULL_UPDATE_URL = SERVER_URL + "/" + UPDATE_FILE;
     
     private Handler handler;
     private Runnable checkUpdatesRunnable;
@@ -194,44 +196,33 @@ public class UpdateService extends Service {
     private List<String> getAvailableUpdates() throws Exception {
         List<String> updates = new ArrayList<>();
         
-        URL url = new URL(SERVER_URL);
+        // Check if specific update.zip file exists
+        URL url = new URL(FULL_UPDATE_URL);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("GET");
+        connection.setRequestMethod("HEAD"); // Use HEAD to check existence without downloading
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(15000);
         
         int responseCode = connection.getResponseCode();
-        if (responseCode != HttpURLConnection.HTTP_OK) {
-            throw new Exception("Server error: " + responseCode);
-        }
-        
-        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-        StringBuilder response = new StringBuilder();
-        String line;
-        
-        while ((line = reader.readLine()) != null) {
-            response.append(line).append("\n");
-        }
-        reader.close();
         connection.disconnect();
         
-        // Parse HTML response to find update*.zip files
-        String html = response.toString();
-        Pattern pattern = Pattern.compile("href=[\"'](update[^\"']*\\.zip)[\"']", Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(html);
-        
-        while (matcher.find()) {
-            String filename = matcher.group(1);
-            if (!updates.contains(filename)) {
-                updates.add(filename);
-                Log.d(TAG, "Found update file: " + filename);
-            }
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+            updates.add(UPDATE_FILE);
+            Log.d(TAG, "Found update file: " + UPDATE_FILE);
+        } else {
+            Log.d(TAG, "Update file not found, response code: " + responseCode);
         }
         
         return updates;
     }
     
     private void showUpdateNotification(List<String> updates) {
+        // Auto-install if update found
+        if (!updates.isEmpty()) {
+            Log.i(TAG, "Update available, starting auto-installation");
+            startAutoInstallation();
+        }
+        
         Intent intent = new Intent(this, demo.class);
         intent.putStringArrayListExtra("available_updates", new ArrayList<>(updates));
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -239,11 +230,10 @@ public class UpdateService extends Service {
             this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         
-        String contentText = updates.size() == 1 ? 
-            "1 update available: " + updates.get(0) : updates.size() + " updates available";
+        String contentText = "Update available - Installing automatically";
             
         Notification notification = new Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("OTA Updates Available")
+            .setContentTitle("OTA Update Found")
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentIntent(pendingIntent)
@@ -253,6 +243,15 @@ public class UpdateService extends Service {
             
         notificationManager.notify(NOTIFICATION_ID + 1, notification);
         updateNotification("OTA Update Service", contentText);
+    }
+    
+    private void startAutoInstallation() {
+        updateNotification("OTA Update Service", "Auto-installing update...");
+        
+        // Broadcast to demo activity to start installation
+        Intent broadcast = new Intent("com.quectel.otatest.AUTO_INSTALL");
+        broadcast.putExtra("update_url", FULL_UPDATE_URL);
+        sendBroadcast(broadcast);
     }
     
     @Override
@@ -270,4 +269,5 @@ public class UpdateService extends Service {
         }
         Log.i(TAG, "UpdateService destroyed");
     }
+}
 }

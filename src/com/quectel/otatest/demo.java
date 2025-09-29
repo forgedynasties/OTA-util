@@ -103,6 +103,11 @@ public class demo extends Activity {
                 if (updates != null) {
                     runOnUiThread(() -> updateAvailableUpdates(updates));
                 }
+            } else if ("com.quectel.otatest.AUTO_INSTALL".equals(intent.getAction())) {
+                String updateUrl = intent.getStringExtra("update_url");
+                if (updateUrl != null) {
+                    runOnUiThread(() -> startAutoInstallation(updateUrl));
+                }
             }
         }
     };
@@ -146,7 +151,9 @@ public class demo extends Activity {
         startForegroundService(serviceIntent);
         
         // Register broadcast receiver
-        IntentFilter filter = new IntentFilter("com.quectel.otatest.UPDATES_FOUND");
+        IntentFilter filter = new IntentFilter();
+        filter.addAction("com.quectel.otatest.UPDATES_FOUND");
+        filter.addAction("com.quectel.otatest.AUTO_INSTALL");
         registerReceiver(updateReceiver, filter);
         
         // Check if started from notification
@@ -452,5 +459,22 @@ public class demo extends Activity {
             }
             progressDialog.setProgress(progress);
         });
+    }
+
+    private void startAutoInstallation(String updateUrl) {
+        Log.i(TAG, "Starting automatic installation for: " + updateUrl);
+        showStatus("Auto-installing update from server...");
+        
+        // Set URL and disable manual controls
+        urlEdit.setText(updateUrl);
+        installBtn.setEnabled(false);
+        refreshBtn.setEnabled(false);
+        
+        // Start installation automatically
+        new Thread(new Runnable() {
+            public void run() { 
+                performFullInstall(updateUrl);
+            }
+        }).start();
     }
 }
