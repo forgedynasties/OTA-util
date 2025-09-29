@@ -35,6 +35,95 @@
         android:gravity="center"
         android:text="Ready to install update" />
 
+    <!-- Progress Section -->
+    <LinearLayout
+        android:id="@+id/progress_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="15dp"
+        android:orientation="vertical"
+        android:padding="15dp"
+        android:background="@android:color/white"
+        android:elevation="2dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/progress_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Progress"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"
+            android:gravity="center" />
+
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:max="100"
+            android:progress="0" />
+
+        <TextView
+            android:id="@+id/progress_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:text="0%"
+            android:textSize="14sp"
+            android:textColor="@android:color/darker_gray"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/progress_details"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:text="Waiting for updates..."
+            android:textSize="12sp"
+            android:textColor="@android:color/darker_gray"
+            android:gravity="center" />
+
+    </LinearLayout>
+
+    <!-- Service Status -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Service Status: "
+            android:textSize="12sp"
+            android:textColor="@android:color/darker_gray" />
+
+        <TextView
+            android:id="@+id/service_status"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Active"
+            android:textSize="12sp"
+            android:textColor="@android:color/holo_green_dark"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/sync_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:text="Sync"
+            android:textSize="10sp"
+            android:padding="5dp"
+            android:onClick="syncWithService" />
+
+    </LinearLayout>
+
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

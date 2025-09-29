@@ -25,6 +25,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.File;
+import android.content.SharedPreferences;
 
 public class UpdateService extends Service {
     private static final String TAG = "UpdateService";
@@ -41,18 +45,46 @@ public class UpdateService extends Service {
     private ConnectivityManager connectivityManager;
     private List<String> availableUpdates = new ArrayList<>();
     private boolean isCheckingUpdates = false;
+    private boolean isDownloading = false;
+    private boolean isInstalling = false;
+    private int downloadProgress = 0;
+    private int installProgress = 0;
+    private String currentUpdateUrl = "";
+    private SharedPreferences syncPrefs;
+    private static final String SYNC_PREFS = "ota_sync";
+    private static final String KEY_DOWNLOAD_PROGRESS = "download_progress";
+    private static final String KEY_INSTALL_PROGRESS = "install_progress";
+    private static final String KEY_CURRENT_STATE = "current_state";
+    private static final String KEY_STATUS_MESSAGE = "status_message";
     
     private BroadcastReceiver networkReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (ConnectivityManager.CONNECTIVITY_ACTION.equals(intent.getAction()) ||
-                WifiManager.WIFI_STATE_CHANGED_ACTION.equals(intent.getAction()) ||
-                "com.quectel.otatest.REFRESH_UPDATES".equals(intent.getAction())) {
+            String action = intent.getAction();
+            if (ConnectivityManager.CONNECTIVITY_ACTION.equals(action) ||
+                WifiManager.WIFI_STATE_CHANGED_ACTION.equals(action) ||
+                "com.quectel.otatest.REFRESH_UPDATES".equals(action)) {
                 
                 Log.d(TAG, "Network state changed or refresh requested");
                 if (isWifiConnected()) {
                     checkForUpdates();
                 }
+            } else if ("com.quectel.otatest.CONTINUE_INSTALL".equals(action)) {
+                // User clicked notification to continue installation
+                startInstallationProcess();
+            } else if ("com.quectel.otatest.INSTALL_PROGRESS".equals(action)) {
+                // Update installation progress from demo activity
+                int progress = intent.getIntExtra("progress", 0);
+                String message = intent.getStringExtra("message");
+                updateInstallProgress(progress, message != null ? message : "Installing...");
+            } else if ("com.quectel.otatest.INSTALL_COMPLETE".equals(action)) {
+                // Installation completed
+                boolean success = intent.getBooleanExtra("success", false);
+                String message = intent.getStringExtra("message");
+                handleInstallationComplete(success, message);
+            } else if ("com.quectel.otatest.SYNC_REQUEST".equals(action)) {
+                // Demo activity requesting current status
+                sendCurrentStatusToDemo();
             }
         }
     };
@@ -65,6 +97,7 @@ public class UpdateService extends Service {
         handler = new Handler(Looper.getMainLooper());
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        syncPrefs = getSharedPreferences(SYNC_PREFS, Context.MODE_PRIVATE);
         
         createNotificationChannel();
         startForegroundService();
@@ -100,6 +133,10 @@ public class UpdateService extends Service {
         filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
         filter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
         filter.addAction("com.quectel.otatest.REFRESH_UPDATES");
+        filter.addAction("com.quectel.otatest.CONTINUE_INSTALL");
+        filter.addAction("com.quectel.otatest.INSTALL_PROGRESS");
+        filter.addAction("com.quectel.otatest.INSTALL_COMPLETE");
+        filter.addAction("com.quectel.otatest.SYNC_REQUEST");
         registerReceiver(networkReceiver, filter);
     }
     
@@ -217,10 +254,11 @@ public class UpdateService extends Service {
     }
     
     private void showUpdateNotification(List<String> updates) {
-        // Auto-install if update found
+        // Start download if update found
         if (!updates.isEmpty()) {
-            Log.i(TAG, "Update available, starting auto-installation");
-            startAutoInstallation();
+            Log.i(TAG, "Update available, starting download");
+            currentUpdateUrl = FULL_UPDATE_URL;
+            startDownload();
         }
         
         Intent intent = new Intent(this, demo.class);
@@ -230,14 +268,14 @@ public class UpdateService extends Service {
             this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         
-        String contentText = "Update available - Installing automatically";
+        String contentText = "Update found - Starting download...";
             
         Notification notification = new Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("OTA Update Found")
             .setContentText(contentText)
-            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
+            .setAutoCancel(false)
             .setPriority(Notification.PRIORITY_HIGH)
             .build();
             
@@ -245,13 +283,241 @@ public class UpdateService extends Service {
         updateNotification("OTA Update Service", contentText);
     }
     
-    private void startAutoInstallation() {
-        updateNotification("OTA Update Service", "Auto-installing update...");
+    private void startDownload() {
+        if (isDownloading) {
+            Log.d(TAG, "Download already in progress");
+            return;
+        }
+        
+        isDownloading = true;
+        downloadProgress = 0;
+        updateNotification("OTA Update Service", "Starting download...");
+        
+        new Thread(() -> {
+            try {
+                downloadUpdateFile(currentUpdateUrl);
+            } catch (Exception e) {
+                Log.e(TAG, "Download failed", e);
+                handleDownloadError(e.getMessage());
+            }
+        }).start();
+    }
+    
+    private void downloadUpdateFile(String urlString) throws Exception {
+        String downloadPath = "/storage/emulated/0/update.zip";
+        
+        URL url = new URL(urlString);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setConnectTimeout(30000);
+        connection.setReadTimeout(30000);
+        connection.connect();
+        
+        int responseCode = connection.getResponseCode();
+        if (responseCode != HttpURLConnection.HTTP_OK) {
+            throw new Exception("Server returned HTTP " + responseCode);
+        }
+        
+        int fileLength = connection.getContentLength();
+        java.io.InputStream input = connection.getInputStream();
+        java.io.FileOutputStream output = new java.io.FileOutputStream(downloadPath);
+        
+        byte[] buffer = new byte[4096];
+        long total = 0;
+        int count;
+        
+        while ((count = input.read(buffer)) != -1) {
+            total += count;
+            if (fileLength > 0) {
+                downloadProgress = (int) (total * 100 / fileLength);
+                updateDownloadProgress(downloadProgress);
+            }
+            output.write(buffer, 0, count);
+        }
+        
+        output.close();
+        input.close();
+        connection.disconnect();
+        
+        Log.i(TAG, "Download completed: " + total + " bytes");
+        handleDownloadComplete();
+    }
+    
+    private void updateDownloadProgress(int progress) {
+        String message = "Downloading update... " + progress + "%";
+        
+        // Save state to SharedPreferences for sync
+        syncPrefs.edit()
+            .putInt(KEY_DOWNLOAD_PROGRESS, progress)
+            .putString(KEY_CURRENT_STATE, "download")
+            .putString(KEY_STATUS_MESSAGE, message)
+            .apply();
+        
+        // Update notification
+        Intent intent = new Intent(this, demo.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        Notification notification = new Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle("Downloading OTA Update")
+            .setContentText(message)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setProgress(100, progress, false)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .build();
+            
+        notificationManager.notify(NOTIFICATION_ID + 1, notification);
+        updateNotification("OTA Update Service", message);
+        
+        // Broadcast to demo activity
+        Intent broadcast = new Intent("com.quectel.otatest.DOWNLOAD_PROGRESS");
+        broadcast.putExtra("progress", progress);
+        broadcast.putExtra("message", message);
+        sendBroadcast(broadcast);
+    }
+    
+    private void handleDownloadComplete() {
+        isDownloading = false;
+        downloadProgress = 100;
+        
+        // Create notification asking user to continue installation
+        Intent continueIntent = new Intent("com.quectel.otatest.CONTINUE_INSTALL");
+        PendingIntent continuePendingIntent = PendingIntent.getBroadcast(
+            this, 0, continueIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        Intent openAppIntent = new Intent(this, demo.class);
+        openAppIntent.putExtra("download_complete", true);
+        openAppIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        PendingIntent openAppPendingIntent = PendingIntent.getActivity(
+            this, 0, openAppIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        Notification notification = new Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle("Update Download Complete")
+            .setContentText("Tap to continue installation")
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setContentIntent(openAppPendingIntent)
+            .setAutoCancel(true)
+            .setPriority(Notification.PRIORITY_HIGH)
+            .addAction(android.R.drawable.ic_media_play, "Install Now", continuePendingIntent)
+            .build();
+            
+        notificationManager.notify(NOTIFICATION_ID + 1, notification);
+        updateNotification("OTA Update Service", "Download complete - Ready to install");
+        
+        // Broadcast download completion to demo activity
+        Intent broadcast = new Intent("com.quectel.otatest.DOWNLOAD_COMPLETE");
+        sendBroadcast(broadcast);
+    }
+    
+    private void handleDownloadError(String error) {
+        isDownloading = false;
+        
+        String message = "Download failed: " + error;
+        updateNotification("OTA Update Service", message);
+        
+        // Broadcast error to demo activity
+        Intent broadcast = new Intent("com.quectel.otatest.DOWNLOAD_ERROR");
+        broadcast.putExtra("error", error);
+        sendBroadcast(broadcast);
+    }
+    
+    private void startInstallationProcess() {
+        if (isInstalling) {
+            Log.d(TAG, "Installation already in progress");
+            return;
+        }
+        
+        isInstalling = true;
+        installProgress = 0;
+        updateNotification("OTA Update Service", "Starting installation...");
         
         // Broadcast to demo activity to start installation
-        Intent broadcast = new Intent("com.quectel.otatest.AUTO_INSTALL");
-        broadcast.putExtra("update_url", FULL_UPDATE_URL);
+        Intent broadcast = new Intent("com.quectel.otatest.START_INSTALL");
+        broadcast.putExtra("update_url", currentUpdateUrl);
         sendBroadcast(broadcast);
+    }
+    
+    private void updateInstallProgress(int progress, String message) {
+        installProgress = progress;
+        
+        // Save state to SharedPreferences for sync
+        syncPrefs.edit()
+            .putInt(KEY_INSTALL_PROGRESS, progress)
+            .putString(KEY_CURRENT_STATE, "install")
+            .putString(KEY_STATUS_MESSAGE, message)
+            .apply();
+        
+        // Update notification
+        Intent intent = new Intent(this, demo.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        Notification notification = new Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle("Installing OTA Update")
+            .setContentText(message + " " + progress + "%")
+            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setProgress(100, progress, false)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .build();
+            
+        notificationManager.notify(NOTIFICATION_ID + 1, notification);
+        updateNotification("OTA Update Service", message + " " + progress + "%");
+    }
+    
+    private void handleInstallationComplete(boolean success, String message) {
+        isInstalling = false;
+        
+        String title = success ? "Installation Complete" : "Installation Failed";
+        String text = message != null ? message : (success ? "Reboot required" : "Installation error");
+        
+        Intent intent = new Intent(this, demo.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        int icon = success ? android.R.drawable.stat_sys_upload_done : android.R.drawable.stat_notify_error;
+        
+        Notification notification = new Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setSmallIcon(icon)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(Notification.PRIORITY_HIGH)
+            .build();
+            
+        notificationManager.notify(NOTIFICATION_ID + 1, notification);
+        updateNotification("OTA Update Service", text);
+    }
+    
+    private void sendCurrentStatusToDemo() {
+        // Send current service status to demo activity
+        String currentState = syncPrefs.getString(KEY_CURRENT_STATE, "");
+        String statusMessage = syncPrefs.getString(KEY_STATUS_MESSAGE, "Ready");
+        int progress = 0;
+        
+        if ("download".equals(currentState)) {
+            progress = syncPrefs.getInt(KEY_DOWNLOAD_PROGRESS, 0);
+        } else if ("install".equals(currentState)) {
+            progress = syncPrefs.getInt(KEY_INSTALL_PROGRESS, 0);
+        }
+        
+        if (!currentState.isEmpty() && progress > 0) {
+            Intent broadcast = new Intent("com.quectel.otatest.SERVICE_STATUS");
+            broadcast.putExtra("state", currentState);
+            broadcast.putExtra("progress", progress);
+            broadcast.putExtra("message", statusMessage);
+            sendBroadcast(broadcast);
+            Log.d(TAG, "Sent current status to demo: " + currentState + " " + progress + "% - " + statusMessage);
+        }
     }
     
     @Override
