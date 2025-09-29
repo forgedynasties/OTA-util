@@ -67,7 +67,6 @@ public class demo extends Activity {
     private boolean isServiceDownloading = false;
     private boolean isServiceInstalling = false;
     private int currentProgress = 0;
-    private TextView progressText;
     private SharedPreferences syncPrefs;
     private static final String SYNC_PREFS = "ota_sync";
     private static final String KEY_DOWNLOAD_PROGRESS = "download_progress";
