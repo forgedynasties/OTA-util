@@ -26,7 +26,8 @@
         android:label="OTA Test"
         android:theme="@android:style/Theme.Material.Light"
         android:allowBackup="false"
-        android:fullBackupContent="false">
+        android:fullBackupContent="false"
+        android:usesCleartextTraffic="true">
         
         <activity android:name=".demo"
             android:exported="true"
