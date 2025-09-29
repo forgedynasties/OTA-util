@@ -58,7 +58,7 @@ public class demo extends Activity {
     private String selectedUpdate = "";
     private static final String SERVER_URL = "http://10.32.1.11:8080/";
     
-    String downloadPath = "/storage/emulated/0/update.zip";
+    String downloadPath;
     String installPath = "/data/ota_package/update.zip";
     WakeLock mWakelock;
     String TAG="OTATEST";
@@ -169,6 +169,9 @@ public class demo extends Activity {
 
         PowerManager pm = (PowerManager)this.getSystemService(Context.POWER_SERVICE);
         mWakelock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "OTA Wakelock");
+        
+        // Initialize download path to /data/ota_package
+        downloadPath = "/data/ota_package/update.zip";
         
         buildIdText = (TextView) findViewById(R.id.build_id);
         statusText = (TextView) findViewById(R.id.status);
@@ -382,24 +385,30 @@ public class demo extends Activity {
     
     private void performServiceInstallation() {
         try {
-            // File should already be downloaded, just need to move and install
-            String downloadPath = "/storage/emulated/0/update.zip";
-            String installPath = "/data/ota_package/update.zip";
+            // File should already be downloaded to /data/ota_package
+            String downloadPath = "/data/ota_package/update.zip";
+            String externalPath = "/storage/emulated/0/update.zip";
             
-            // Broadcast progress to service
-            broadcastInstallProgress(10, "Setting permissions...");
-            if(!setFilePermissions(downloadPath)) {
+            // Step 1: Move to external storage for permission change
+            broadcastInstallProgress(10, "Moving to external storage...");
+            if(!moveToExternal(downloadPath, externalPath)) {
                 return;
             }
             
-            // Step 2: Move file
-            broadcastInstallProgress(30, "Moving to install directory...");
-            if(!moveFile(downloadPath, installPath)) {
+            // Step 2: Set permissions on external storage
+            broadcastInstallProgress(30, "Setting permissions...");
+            if(!setFilePermissions(externalPath)) {
                 return;
             }
             
-            // Step 3: Install
-            broadcastInstallProgress(50, "Installing update...");
+            // Step 3: Move back to install directory
+            broadcastInstallProgress(50, "Moving back to install directory...");
+            if(!moveFromExternal(externalPath, downloadPath)) {
+                return;
+            }
+            
+            // Step 4: Install
+            broadcastInstallProgress(70, "Installing update...");
             installUpdate();
             
         } catch (Exception e) {
@@ -529,25 +538,32 @@ public class demo extends Activity {
 
     private void performFullInstall(String urlString) {
         try {
-            // Step 1: Download
+            // Step 1: Download directly to /data/ota_package
             showStatus("Downloading update...");
             if(!downloadFile(urlString)) {
                 return;
             }
             
-            // Step 2: Set permissions
+            // Step 2: Move to external storage
+            String externalPath = "/storage/emulated/0/update.zip";
+            showStatus("Moving to external storage...");
+            if(!moveToExternal(downloadPath, externalPath)) {
+                return;
+            }
+            
+            // Step 3: Set permissions on external storage
             showStatus("Setting permissions...");
-            if(!setFilePermissions(downloadPath)) {
+            if(!setFilePermissions(externalPath)) {
                 return;
             }
             
-            // Step 3: Move file
-            showStatus("Moving to install directory...");
-            if(!moveFile(downloadPath, installPath)) {
+            // Step 4: Move back to install directory
+            showStatus("Moving back to install directory...");
+            if(!moveFromExternal(externalPath, downloadPath)) {
                 return;
             }
             
-            // Step 4: Install
+            // Step 5: Install
             showStatus("Installing update...");
             installUpdate();
             
@@ -562,6 +578,14 @@ public class demo extends Activity {
 
     private boolean downloadFile(String urlString) {
         try {
+            // Ensure ota_package directory exists
+            File otaDir = new File("/data/ota_package");
+            if (!otaDir.exists()) {
+                otaDir.mkdirs();
+            }
+            
+            Log.d(TAG, "Downloading from: " + urlString + " to: " + downloadPath);
+            
             URL url = new URL(urlString);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.connect();
@@ -594,8 +618,7 @@ public class demo extends Activity {
             input.close();
             connection.disconnect();
             
-            Log.i(TAG, "Download completed: " + total + " bytes");
-            return true;
+                        Log.i(TAG, \"Download completed: \" + total + \" bytes to \" + downloadPath);\n            return true;
             
         } catch (Exception e) {
             Log.e(TAG, "Download failed", e);
@@ -633,26 +656,52 @@ public class demo extends Activity {
         }
     }
 
-    private boolean moveFile(String sourcePath, String destPath) {
+    private boolean moveToExternal(String sourcePath, String destPath) {
         try {
             Process process = Runtime.getRuntime().exec("mv " + sourcePath + " " + destPath);
             int result = process.waitFor();
             
             if (result == 0) {
-                Log.i(TAG, "Successfully moved file to: " + destPath);
+                Log.i(TAG, "Successfully moved file to external storage: " + destPath);
                 return true;
             } else {
-                Log.e(TAG, "mv command failed with code: " + result);
+                Log.e(TAG, "mv to external command failed with code: " + result);
                 runOnUiThread(() -> {
-                    showStatus("Failed to move file to install directory");
+                    showStatus("Failed to move file to external storage");
                     installBtn.setEnabled(true);
                 });
                 return false;
             }
         } catch (Exception e) {
-            Log.e(TAG, "moveFile failed", e);
+            Log.e(TAG, "moveToExternal failed", e);
             runOnUiThread(() -> {
-                showStatus("Move error: " + e.getMessage());
+                showStatus("Move to external error: " + e.getMessage());
+                installBtn.setEnabled(true);
+            });
+            return false;
+        }
+    }
+    
+    private boolean moveFromExternal(String sourcePath, String destPath) {
+        try {
+            Process process = Runtime.getRuntime().exec("mv " + sourcePath + " " + destPath);
+            int result = process.waitFor();
+            
+            if (result == 0) {
+                Log.i(TAG, "Successfully moved file back from external storage: " + destPath);
+                return true;
+            } else {
+                Log.e(TAG, "mv from external command failed with code: " + result);
+                runOnUiThread(() -> {
+                    showStatus("Failed to move file back from external storage");
+                    installBtn.setEnabled(true);
+                });
+                return false;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "moveFromExternal failed", e);
+            runOnUiThread(() -> {
+                showStatus("Move from external error: " + e.getMessage());
                 installBtn.setEnabled(true);
             });
             return false;

@@ -304,7 +304,16 @@ public class UpdateService extends Service {
     }
     
     private void downloadUpdateFile(String urlString) throws Exception {
-        String downloadPath = "/storage/emulated/0/update.zip";
+        // Download directly to /data/ota_package/update.zip
+        String downloadPath = "/data/ota_package/update.zip";
+        
+        // Ensure ota_package directory exists
+        File otaDir = new File("/data/ota_package");
+        if (!otaDir.exists()) {
+            otaDir.mkdirs();
+        }
+        
+        Log.d(TAG, "Downloading to: " + downloadPath);
         
         URL url = new URL(urlString);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -338,9 +347,11 @@ public class UpdateService extends Service {
         input.close();
         connection.disconnect();
         
-        Log.i(TAG, "Download completed: " + total + " bytes");
+        Log.i(TAG, "Download completed: " + total + " bytes to " + downloadPath);
         handleDownloadComplete();
     }
+    
+
     
     private void updateDownloadProgress(int progress) {
         String message = "Downloading update... " + progress + "%";
