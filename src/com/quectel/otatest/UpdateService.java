@@ -270,4 +270,3 @@ public class UpdateService extends Service {
         Log.i(TAG, "UpdateService destroyed");
     }
 }
-}
