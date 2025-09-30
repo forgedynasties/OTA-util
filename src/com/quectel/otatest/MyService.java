@@ -7,16 +7,20 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Build;
 import android.os.IBinder;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 public class MyService extends Service {
+    private static final String TAG = "MyService";
     private static final String CHANNEL_ID = "OTA_SERVICE_CHANNEL";
 
     @Override
     public void onCreate() {
         super.onCreate();
+        Log.d(TAG, "Service onCreate called");
+
         createNotificationChannel();
 
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -26,11 +30,12 @@ public class MyService extends Service {
                 .build();
 
         startForeground(1, notification); // REQUIRED
+        Log.d(TAG, "Service started as foreground service");
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Logger.d("MyService", "Service started after boot");
+        Log.d(TAG, "Service started after boot");
         // TODO: your OTA logic here
         return START_STICKY;
     }
@@ -38,7 +43,7 @@ public class MyService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        Logger.d("MyService", "Service destroyed");
+        Log.d(TAG, "Service destroyed");
     }
 
     @Nullable
@@ -57,6 +62,7 @@ public class MyService extends Service {
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(serviceChannel);
+                Log.d(TAG, "Notification channel created");
             }
         }
     }
