@@ -2,9 +2,11 @@ package com.quectel.otatest;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -20,6 +22,8 @@ public class UpdateActivity extends Activity {
     private ProgressDialog progressDialog;
     private Handler mainHandler;
     private ShellManager shellManager;
+    private UpdateManager updateManager;
+    private PowerManager.WakeLock wakeLock;
     private boolean isUpdateAvailable = false;
     
     @Override
@@ -34,7 +38,13 @@ public class UpdateActivity extends Activity {
             
             mainHandler = new Handler(Looper.getMainLooper());
             shellManager = new ShellManager();
-            Log.d(TAG, "Handler and ShellManager initialized");
+            
+            // Initialize power management and update manager
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            wakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "OTA:UpdateActivity");
+            updateManager = new UpdateManager(mainHandler, wakeLock);
+            
+            Log.d(TAG, "Handler, ShellManager, and UpdateManager initialized");
             
             initViews();
             Log.d(TAG, "Views initialized");
@@ -297,20 +307,39 @@ public class UpdateActivity extends Activity {
             mainHandler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    progressDialog.dismiss();
+                    // Update UI for system update phase
+                    progressDialog.setMessage("Step 3: Installing system update...");
+                    progressDialog.setProgress(0);
                     
-                    // Show final confirmation and start update
-                    statusText.setText("Update installation prepared successfully!\n\nThe system will now proceed with the update installation. The device will reboot automatically when complete.");
+                    statusText.setText("Installing system update...\n\nThe device will reboot automatically when complete. Do not turn off the device during this process.");
                     
-                    Toast.makeText(UpdateActivity.this, "Update installation starting...", Toast.LENGTH_LONG).show();
+                    Toast.makeText(UpdateActivity.this, "System update installation starting...", Toast.LENGTH_LONG).show();
+                    Log.i(TAG, "Starting actual system update with UpdateManager");
                     
-                    // Here you would typically call your UpdateManager
-                    // For now, we'll just log that the update is ready
-                    Log.i(TAG, "Update is ready for installation");
-                    
-                    // You can integrate with UpdateManager here:
-                    // UpdateManager updateManager = new UpdateManager(mainHandler, wakeLock);
-                    // updateManager.performUpdate(callback);
+                    // Use UpdateManager to perform the actual system update
+                    updateManager.performUpdate(new UpdateManager.UpdateCallback() {
+                        @Override
+                        public void onProgress(int progress) {
+                            Log.d(TAG, "System update progress: " + progress + "%");
+                            progressDialog.setProgress(progress);
+                            progressDialog.setMessage("Step 3: Installing system update... " + progress + "%");
+                        }
+                        
+                        @Override
+                        public void onSuccess() {
+                            Log.i(TAG, "System update completed successfully");
+                            progressDialog.dismiss();
+                            statusText.setText("System update completed successfully!\n\nThe device will reboot shortly to complete the installation.");
+                            Toast.makeText(UpdateActivity.this, "Update completed! Device will reboot...", Toast.LENGTH_LONG).show();
+                        }
+                        
+                        @Override
+                        public void onError(String error) {
+                            Log.e(TAG, "System update failed: " + error);
+                            progressDialog.dismiss();
+                            showError("System update failed: " + error);
+                        }
+                    });
                 }
             }, 1500);
             
@@ -338,6 +367,9 @@ public class UpdateActivity extends Activity {
         super.onDestroy();
         if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
+        }
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
         }
     }
 }
