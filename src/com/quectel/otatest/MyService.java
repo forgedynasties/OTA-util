@@ -10,7 +10,6 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
-import androidx.core.app.NotificationCompat;
 
 public class MyService extends Service {
     private static final String TAG = "MyService";
@@ -73,22 +72,31 @@ public class MyService extends Service {
      */
     private Notification createSuccessNotification() {
         Intent notificationIntent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(
-            this, 
-            0, 
-            notificationIntent, 
-            PendingIntent.FLAG_IMMUTABLE
-        );
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, flags);
 
-        return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("OTA Service Started")
+        Notification.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            builder = new Notification.Builder(this, CHANNEL_ID);
+        } else {
+            builder = new Notification.Builder(this);
+        }
+
+        builder.setContentTitle("OTA Service Started")
                 .setContentText("Background service started successfully after boot")
                 .setSmallIcon(R.drawable.easyftptest)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(false)
-                .setOngoing(true)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .build();
+                .setOngoing(true);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+            builder.setPriority(Notification.PRIORITY_DEFAULT);
+        }
+
+        return builder.build();
     }
 
     /**
@@ -100,21 +108,30 @@ public class MyService extends Service {
         
         if (notificationManager != null) {
             Intent notificationIntent = new Intent(this, MainActivity.class);
-            PendingIntent pendingIntent = PendingIntent.getActivity(
-                this, 
-                0, 
-                notificationIntent, 
-                PendingIntent.FLAG_IMMUTABLE
-            );
+            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                flags |= PendingIntent.FLAG_IMMUTABLE;
+            }
+            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, flags);
 
-            Notification successNotification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setContentTitle("OTA Service Status")
+            Notification.Builder builder;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                builder = new Notification.Builder(this, CHANNEL_ID);
+            } else {
+                builder = new Notification.Builder(this);
+            }
+
+            builder.setContentTitle("OTA Service Status")
                     .setContentText("Service started successfully! Tap to open app.")
                     .setSmallIcon(R.drawable.easyftptest)
                     .setContentIntent(pendingIntent)
-                    .setAutoCancel(true)
-                    .setPriority(NotificationCompat.PRIORITY_HIGH)
-                    .build();
+                    .setAutoCancel(true);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                builder.setPriority(Notification.PRIORITY_HIGH);
+            }
+
+            Notification successNotification = builder.build();
 
             // Show the success notification with a different ID
             notificationManager.notify(NOTIFICATION_ID + 1, successNotification);
