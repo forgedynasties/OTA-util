@@ -618,7 +618,8 @@ public class demo extends Activity {
             input.close();
             connection.disconnect();
             
-                        Log.i(TAG, \"Download completed: \" + total + \" bytes to \" + downloadPath);\n            return true;
+            Log.i(TAG, "Download completed: " + total + " bytes to " + downloadPath);
+            return true;
             
         } catch (Exception e) {
             Log.e(TAG, "Download failed", e);
