@@ -18,7 +18,7 @@
         android:usesCleartextTraffic="true"
         android:name=".OtaApplication">
         <activity
-            android:name=".demo"
+            android:name=".MainActivity"
             android:label="@string/title_activity_demo"
             android:exported="true">
             <intent-filter>

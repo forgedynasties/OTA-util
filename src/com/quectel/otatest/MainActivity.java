@@ -32,7 +32,7 @@ import android.content.pm.PackageManager;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
-public class demo extends Activity {
+public class MainActivity extends Activity {
     TextView destEdit,info;
     EditText urlEdit;
     Button downloadBtn;
