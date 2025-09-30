@@ -53,7 +53,7 @@ public class MainActivity extends Activity {
         
         // Initialize managers
         uiManager = new UIManager(this);
-        downloadManager = new DownloadManager(mainHandler);
+        downloadManager = new DownloadManager();
         updateManager = new UpdateManager(mainHandler, wakeLock);
         shellManager = new ShellManager();
         
