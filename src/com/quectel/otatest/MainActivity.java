@@ -120,7 +120,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         Log.i(TAG, "onCreate - Activity starting");
         mContext=this;
-        setContentView(R.layout.activity_demo);
+        setContentView(R.layout.activity_main);
 
         PowerManager pm = (PowerManager)this.getSystemService(Context.POWER_SERVICE);
         mWakelock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "OTA Wakelock");
