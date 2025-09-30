@@ -2,6 +2,7 @@ package com.quectel.otatest;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -32,6 +33,12 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         
         initializeComponents();
+        
+        // Reset notification flag when app is opened
+        UpdateCheckService.resetNotificationFlag(this);
+        
+        // Ensure update check service is running
+        startUpdateCheckService();
         
         Log.i(TAG, "Activity initialized successfully");
     }
@@ -73,6 +80,20 @@ public class MainActivity extends Activity {
             uiManager.dismissDialogs();
         }
         Log.d(TAG, "Resources cleaned up");
+    }
+
+    private void startUpdateCheckService() {
+        try {
+            Intent serviceIntent = new Intent(this, UpdateCheckService.class);
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+            Log.d(TAG, "UpdateCheckService started from MainActivity");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start UpdateCheckService", e);
+        }
     }
 
     // === BUTTON HANDLERS ===
