@@ -44,7 +44,7 @@ public class BootReceiver extends BroadcastReceiver {
         
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) || 
             Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action) ||
-            Intent.ACTION_QUICKBOOT_POWERON.equals(action) ||
+            "android.intent.action.QUICKBOOT_POWERON".equals(action) ||
             Intent.ACTION_MY_PACKAGE_REPLACED.equals(action) ||
             Intent.ACTION_PACKAGE_REPLACED.equals(action) ||
             Intent.ACTION_USER_PRESENT.equals(action) ||
