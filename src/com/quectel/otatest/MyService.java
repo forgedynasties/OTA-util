@@ -10,7 +10,6 @@ import android.os.IBinder;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
-import androidx.core.app.NotificationCompat;
 
 public class MyService extends Service {
     private static final String TAG = "MyService";
@@ -23,11 +22,20 @@ public class MyService extends Service {
 
         createNotificationChannel();
 
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("OTA Service")
-                .setContentText("Running after boot…")
-                .setSmallIcon(R.drawable.ic_launcher_foreground) // replace with your app icon
-                .build();
+        Notification notification;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notification = new Notification.Builder(this, CHANNEL_ID)
+                    .setContentTitle("OTA Service")
+                    .setContentText("Running after boot…")
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .build();
+        } else {
+            notification = new Notification.Builder(this)
+                    .setContentTitle("OTA Service")
+                    .setContentText("Running after boot…")
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .build();
+        }
 
         startForeground(1, notification); // REQUIRED
         Log.d(TAG, "Service started as foreground service");
