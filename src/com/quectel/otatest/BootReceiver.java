@@ -3,6 +3,7 @@ package com.quectel.otatest;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -13,7 +14,7 @@ import java.util.Date;
 import java.util.Locale;
 
 public class BootReceiver extends BroadcastReceiver {
-    private static final String TAG = "BootReceiver";
+    private static final String TAG = "OTA_BootReceiver";
     private static final int MAX_RETRY_ATTEMPTS = 5;
     private static final int RETRY_DELAY_MS = 3000;
     
@@ -29,15 +30,21 @@ public class BootReceiver extends BroadcastReceiver {
         Log.i(TAG, "Device Model: " + Build.MODEL);
         Log.i(TAG, "Process ID: " + android.os.Process.myPid());
         
+        // Save boot time for verification
+        SharedPreferences prefs = context.getSharedPreferences("ota_boot", Context.MODE_PRIVATE);
+        prefs.edit().putLong("last_boot_time", System.currentTimeMillis()).apply();
+        
         // Show toast to verify receiver is working (for debugging)
         try {
-            Toast.makeText(context, "BootReceiver triggered: " + action, Toast.LENGTH_LONG).show();
+            Toast.makeText(context, "OTA Boot Receiver: " + action, Toast.LENGTH_LONG).show();
             Log.d(TAG, "Toast displayed successfully");
         } catch (Exception e) {
             Log.e(TAG, "Failed to show toast", e);
         }
         
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) || 
+            Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action) ||
+            Intent.ACTION_QUICKBOOT_POWERON.equals(action) ||
             Intent.ACTION_MY_PACKAGE_REPLACED.equals(action) ||
             Intent.ACTION_PACKAGE_REPLACED.equals(action) ||
             Intent.ACTION_USER_PRESENT.equals(action) ||
@@ -89,21 +96,26 @@ public class BootReceiver extends BroadcastReceiver {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 Log.d(TAG, "Starting foreground service (Android 8+)");
                 context.startForegroundService(serviceIntent);
+                Toast.makeText(context, "OTA Boot: Starting UpdateCheckService (foreground)", Toast.LENGTH_LONG).show();
             } else {
                 Log.d(TAG, "Starting regular service (Android < 8)");
                 context.startService(serviceIntent);
+                Toast.makeText(context, "OTA Boot: Starting UpdateCheckService (regular)", Toast.LENGTH_LONG).show();
             }
             
-            Log.i(TAG, "Service start command sent successfully - Attempt " + (attemptNumber + 1));
+            Log.i(TAG, "UpdateCheckService start command sent successfully - Attempt " + (attemptNumber + 1));
             
         } catch (SecurityException e) {
             Log.e(TAG, "SecurityException starting service - Attempt " + (attemptNumber + 1), e);
+            Toast.makeText(context, "OTA Boot: SecurityException starting service", Toast.LENGTH_LONG).show();
             scheduleRetry(context, attemptNumber + 1);
         } catch (IllegalStateException e) {
             Log.e(TAG, "IllegalStateException starting service - Attempt " + (attemptNumber + 1), e);
+            Toast.makeText(context, "OTA Boot: IllegalStateException starting service", Toast.LENGTH_LONG).show();
             scheduleRetry(context, attemptNumber + 1);
         } catch (Exception e) {
             Log.e(TAG, "Unexpected exception starting service - Attempt " + (attemptNumber + 1), e);
+            Toast.makeText(context, "OTA Boot: Exception starting service: " + e.getMessage(), Toast.LENGTH_LONG).show();
             scheduleRetry(context, attemptNumber + 1);
         }
     }

@@ -21,8 +21,11 @@ import android.util.Log;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Date;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.text.SimpleDateFormat;
 
 public class UpdateCheckService extends Service {
     private static final String TAG = "UpdateCheckService";
@@ -47,7 +50,11 @@ public class UpdateCheckService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.i(TAG, "UpdateCheckService created");
+        String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault()).format(new Date());
+        Log.i(TAG, "=== UPDATE CHECK SERVICE CREATED ===");
+        Log.i(TAG, "Service created at: " + timestamp);
+        Log.i(TAG, "Process ID: " + android.os.Process.myPid());
+        Log.i(TAG, "Thread ID: " + Thread.currentThread().getId());
         
         handler = new Handler(Looper.getMainLooper());
         executor = Executors.newSingleThreadExecutor();
@@ -62,11 +69,26 @@ public class UpdateCheckService extends Service {
         setupCheckRunnable();
         
         Log.d(TAG, "UpdateCheckService initialized with wake lock");
+        
+        // Show immediate notification to verify service is running
+        showServiceStartedNotification();
     }
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.i(TAG, "UpdateCheckService started");
+        String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault()).format(new Date());
+        Log.i(TAG, "=== UPDATE CHECK SERVICE STARTED ===");
+        Log.i(TAG, "Service started at: " + timestamp);
+        
+        if (intent != null) {
+            String startSource = intent.getStringExtra("start_source");
+            int attemptNumber = intent.getIntExtra("attempt_number", 0);
+            String startTimestamp = intent.getStringExtra("start_timestamp");
+            
+            Log.i(TAG, "Start source: " + startSource);
+            Log.i(TAG, "Attempt number: " + attemptNumber);
+            Log.i(TAG, "Start timestamp: " + startTimestamp);
+        }
         
         // Start as foreground service to avoid battery optimization
         startForeground(FOREGROUND_SERVICE_ID, createForegroundNotification());
@@ -74,10 +96,12 @@ public class UpdateCheckService extends Service {
         if (!isServiceRunning) {
             isServiceRunning = true;
             startPeriodicCheck();
+            Log.i(TAG, "Periodic update checks started");
+        } else {
+            Log.i(TAG, "Service already running, not starting duplicate checks");
         }
         
         // Return START_STICKY to restart service if killed
-        // Also use START_REDELIVER_INTENT to be more persistent
         return START_STICKY;
     }
     
@@ -312,5 +336,49 @@ public class UpdateCheckService extends Service {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putBoolean(KEY_NOTIFICATION_SHOWN, false).apply();
         Log.d(TAG, "Notification flag reset");
+    }
+    
+    private void showServiceStartedNotification() {
+        // Show a temporary notification to verify service started
+        Intent intent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this, 
+            0, 
+            intent, 
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? 
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT :
+                PendingIntent.FLAG_UPDATE_CURRENT
+        );
+        
+        Notification.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            builder = new Notification.Builder(this, CHANNEL_ID);
+        } else {
+            builder = new Notification.Builder(this);
+        }
+        
+        String timestamp = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
+        Notification notification = builder
+            .setContentTitle("OTA Service Started")
+            .setContentText("UpdateCheckService started successfully at " + timestamp)
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build();
+        
+        // Show notification for 10 seconds then auto-cancel
+        if (notificationManager != null) {
+            notificationManager.notify(999, notification);
+            
+            // Auto-cancel after 10 seconds
+            Handler handler = new Handler(Looper.getMainLooper());
+            handler.postDelayed(() -> {
+                if (notificationManager != null) {
+                    notificationManager.cancel(999);
+                }
+            }, 10000);
+        }
+        
+        Log.i(TAG, "Service started notification displayed");
     }
 }
