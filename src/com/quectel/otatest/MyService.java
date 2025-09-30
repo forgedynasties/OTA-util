@@ -9,8 +9,6 @@ import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 
-import androidx.annotation.Nullable;
-
 public class MyService extends Service {
     private static final String TAG = "MyService";
     private static final String CHANNEL_ID = "OTA_SERVICE_CHANNEL";
@@ -54,7 +52,6 @@ public class MyService extends Service {
         Log.d(TAG, "Service destroyed");
     }
 
-    @Nullable
     @Override
     public IBinder onBind(Intent intent) {
         return null;
@@ -72,6 +69,9 @@ public class MyService extends Service {
                 manager.createNotificationChannel(serviceChannel);
                 Log.d(TAG, "Notification channel created");
             }
+        }
+    }
+}
         }
     }
 }
