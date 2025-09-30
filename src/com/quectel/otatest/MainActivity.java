@@ -43,7 +43,6 @@ public class MainActivity extends Activity {
     Button testShellBtn;
     Button executeShellBtn;
     Button checkPermissionsBtn;
-    Button changePermissionsBtn;  // New button
     
     //String dest=Environment.getExternalStorageDirectory().getPath()+"/update.zip";
     String dest = "/data/ota_package/update.zip";
@@ -54,10 +53,6 @@ public class MainActivity extends Activity {
     private ProgressDialog downloadDialog;
 
     private static final int REQUEST_CODE = 1024;
-
-    /**
-     * 存储权限
-     * */
     private static final int REQUEST_EXTERNAL_STORAGE = 1 ;
     private static String[] PERMISSON_STORAGE = {"android.permission.READ_EXTERNAL_STORAGE",
             "android.permission.WRITE_EXTERNAL_STORAGE",
@@ -69,8 +64,6 @@ public class MainActivity extends Activity {
         public void onStatusUpdate(int status,float percent){
             Log.d(TAG, "UpdateEngineCallback - onStatusUpdate: status=" + status + ", percent=" + percent);
             if (status == UpdateEngine.UpdateStatusConstants.DOWNLOADING) {
-//            DecimalFormat df = new DecimalFormat("#");
-//            String progress = df.format(percent * 100);
                 Log.d(TAG, "update progress: " + percent+";"+(int)(percent*100));
                 handler.sendEmptyMessage((int)(percent*100));
             }
@@ -78,7 +71,7 @@ public class MainActivity extends Activity {
         @Override
         public void onPayloadApplicationComplete(int errorCode) {
             Log.i(TAG, "UpdateEngineCallback - onPayloadApplicationComplete: errorCode=" + errorCode);
-            if (errorCode == UpdateEngine.ErrorCodeConstants.SUCCESS) {// 回调状态
+            if (errorCode == UpdateEngine.ErrorCodeConstants.SUCCESS) {
                 Log.i(TAG, "UPDATE SUCCESS!");
                 dialog.dismiss();
             } else {
@@ -145,7 +138,6 @@ public class MainActivity extends Activity {
         testShellBtn = (Button) findViewById(R.id.test_shell);
         executeShellBtn = (Button) findViewById(R.id.execute_shell);
         checkPermissionsBtn = (Button) findViewById(R.id.check_permissions);
-        changePermissionsBtn = (Button) findViewById(R.id.change_permissions);  // New button
         
         destEdit.setText(dest);
         
@@ -218,10 +210,6 @@ public class MainActivity extends Activity {
             connection.disconnect();
             Log.d(TAG, "downloadUpdate - Closed all streams and connections");
             
-            // Set proper file permissions after download
-            Log.d(TAG, "downloadUpdate - Setting file permissions");
-            setFilePermissions(dest);
-            
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
@@ -242,37 +230,6 @@ public class MainActivity extends Activity {
                     showMessage("Download failed: " + e.getMessage());
                 }
             });
-        }
-    }
-    
-    // Add this method to set file permissions
-    private void setFilePermissions(String filePath) {
-        Log.d(TAG, "setFilePermissions - Setting permissions for: " + filePath);
-        try {
-            File file = new File(filePath);
-            if (file.exists()) {
-                Log.d(TAG, "setFilePermissions - File exists, setting permissions");
-                
-                // Method 1: Using Java File API
-                boolean readable = file.setReadable(true, false);  // readable by all
-                boolean writable = file.setWritable(true, false);  // writable by all
-                Log.d(TAG, "setFilePermissions - Java API: readable=" + readable + ", writable=" + writable);
-                
-                // Method 2: Using chmod command (more reliable for system apps)
-                Process process = Runtime.getRuntime().exec("chmod 644 " + filePath);
-                int result = process.waitFor();
-                
-                if (result == 0) {
-                    Log.i(TAG, "setFilePermissions - Successfully set file permissions: chmod 644 " + filePath);
-                } else {
-                    Log.w(TAG, "setFilePermissions - chmod command returned: " + result);
-                }
-                
-            } else {
-                Log.e(TAG, "setFilePermissions - File does not exist: " + filePath);
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "setFilePermissions - Failed to set file permissions", e);
         }
     }
     
@@ -505,88 +462,6 @@ public class MainActivity extends Activity {
         new Thread(new Runnable() {
             public void run() {
                 checkFilePermissions();
-            }
-        }).start();
-    }
-
-    // New method to change file permissions
-    private void changeFilePermissions() {
-        Log.i(TAG, "changeFilePermissions - Attempting to change update.zip permissions to 644");
-        StringBuilder result = new StringBuilder();
-        
-        try {
-            File updateFile = new File(dest);
-            if (!updateFile.exists()) {
-                result.append("ERROR: update.zip does not exist at: ").append(dest).append("\n");
-                Log.w(TAG, "changeFilePermissions - File does not exist: " + dest);
-            } else {
-                result.append("=== Changing Permissions for update.zip ===\n");
-                result.append("File: ").append(dest).append("\n");
-                result.append("Size: ").append(updateFile.length()).append(" bytes\n\n");
-                
-                // Check current permissions first
-                result.append("Current permissions:\n");
-                String currentPerms = executeShellCommand("ls -la " + dest);
-                result.append(currentPerms).append("\n");
-                
-                // Method 1: Try Java API first
-                result.append("--- Method 1: Java API ---\n");
-                boolean readable = updateFile.setReadable(true, false);  // readable by all
-                boolean writable = updateFile.setWritable(true, false);  // writable by all
-                result.append("setReadable(true, false): ").append(readable).append("\n");
-                result.append("setWritable(true, false): ").append(writable).append("\n\n");
-                
-                Log.d(TAG, "changeFilePermissions - Java API: readable=" + readable + ", writable=" + writable);
-                
-                // Method 2: Try chmod 644
-                result.append("--- Method 2: chmod 644 ---\n");
-                String chmodOutput = executeShellCommand("chmod 644 " + dest);
-                result.append("chmod 644 output:\n").append(chmodOutput).append("\n");
-                
-                // Method 3: Try chmod 664 (more permissive)
-                result.append("--- Method 3: chmod 664 ---\n");
-                String chmod664Output = executeShellCommand("chmod 664 " + dest);
-                result.append("chmod 664 output:\n").append(chmod664Output).append("\n");
-                
-                // Method 4: Try to change ownership (in case needed)
-                result.append("--- Method 4: chown system:system ---\n");
-                String chownOutput = executeShellCommand("chown system:system " + dest);
-                result.append("chown output:\n").append(chownOutput).append("\n");
-                
-                // Verify final permissions
-                result.append("--- Final Verification ---\n");
-                String finalPerms = executeShellCommand("ls -la " + dest);
-                result.append("Final permissions:\n").append(finalPerms).append("\n");
-                
-                // Check Java API results
-                result.append("Java API check:\n");
-                result.append("canRead(): ").append(updateFile.canRead()).append("\n");
-                result.append("canWrite(): ").append(updateFile.canWrite()).append("\n");
-                result.append("canExecute(): ").append(updateFile.canExecute()).append("\n");
-                
-                Log.i(TAG, "changeFilePermissions - Permission change attempt completed");
-            }
-            
-        } catch (Exception e) {
-            Log.e(TAG, "changeFilePermissions - Error changing permissions", e);
-            result.append("Exception: ").append(e.getMessage()).append("\n");
-        }
-        
-        final String finalResult = result.toString();
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                shellOutputText.setText(finalResult);
-            }
-        });
-    }
-
-    // New button handler
-    public void changePermissions(View v){
-        Log.i(TAG, "changePermissions - Change Permissions button clicked");
-        new Thread(new Runnable() {
-            public void run() {
-                changeFilePermissions();
             }
         }).start();
     }

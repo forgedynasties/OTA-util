@@ -118,31 +118,13 @@
 
             </LinearLayout>
 
-            <LinearLayout
+            <Button
+                android:id="@+id/check_permissions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/check_permissions"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginRight="5dp"
-                    android:text="Check Permissions"
-                    android:onClick="checkPermissions" />
-
-                <Button
-                    android:id="@+id/change_permissions"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginLeft="5dp"
-                    android:text="Fix Permissions"
-                    android:onClick="changePermissions" />
-
-            </LinearLayout>
+                android:text="Check Permissions"
+                android:onClick="checkPermissions" />
 
             <TextView
                 android:id="@+id/shell_output"
