@@ -67,7 +67,7 @@
                 android:layout_height="wrap_content"
                 android:text="Checking for updates..."
                 android:textSize="16sp"
-                android:lineSpacing="1.5"
+                android:lineSpacingExtra="4dp"
                 android:gravity="center"
                 android:padding="24dp"
                 android:background="@android:color/white"
