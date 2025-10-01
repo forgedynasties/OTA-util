@@ -4,143 +4,50 @@
     android:layout_height="match_parent"
     android:background="#F6F6F6"
     android:orientation="vertical"
+    android:gravity="center"
     android:paddingBottom="@dimen/activity_vertical_margin"
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="com.quectel.otatest.MainActivity">
 
-    <ScrollView
+    <TextView
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="wrap_content"
+        android:text="OTA Updater"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="40dp"
+        android:textColor="@android:color/black" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-            
-            <EditText
-                android:id="@+id/url"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:hint="Enter server URL for update.zip"
-                android:inputType="textUri" />
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Current Build:"
+        android:textSize="16sp"
+        android:gravity="center"
+        android:layout_marginBottom="10dp"
+        android:textColor="@android:color/black" />
 
-            <Button
-                android:id="@+id/download"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:text="Download Update"
-                android:onClick="download" />
+    <TextView
+        android:id="@+id/build_id_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Loading..."
+        android:textSize="14sp"
+        android:gravity="center"
+        android:layout_marginBottom="40dp"
+        android:textColor="@android:color/darker_gray"
+        android:background="@android:color/white"
+        android:padding="15dp" />
 
-            <TextView
-                android:textSize="20dp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:id="@+id/dest"
-                android:textColor="@android:color/background_dark"
-                android:layout_marginTop="25dp"
-                android:hint="Destination Path"
-                android:layout_gravity="center_horizontal" />
-
-            <Button
-                android:visibility="gone"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/str1"
-                android:id="@+id/down"
-                android:layout_marginTop="25dp"
-                android:layout_gravity="center_horizontal"
-                android:onClick="down"/>
-                
-            <TextView
-                android:textSize="20dp"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:id="@+id/info"
-                android:textColor="@android:color/background_dark"
-                android:layout_marginTop="25dp"
-                android:hint="Status Information"
-                android:layout_gravity="center_horizontal" />
-
-            <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/str2"
-                android:id="@+id/update"
-                android:layout_marginTop="25dp"
-                android:layout_gravity="center_horizontal"
-                android:onClick="update"/>
-
-            <!-- Shell Command Section -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="30dp"
-                android:text="Shell Commands"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:gravity="center" />
-
-            <EditText
-                android:id="@+id/shell_command"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:hint="Enter shell command"
-                android:inputType="text" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/test_shell"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginRight="5dp"
-                    android:text="Test Shell"
-                    android:onClick="testShell" />
-
-                <Button
-                    android:id="@+id/execute_shell"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginLeft="5dp"
-                    android:text="Execute"
-                    android:onClick="executeShell" />
-
-            </LinearLayout>
-
-            <Button
-                android:id="@+id/check_permissions"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:text="Check Permissions"
-                android:onClick="checkPermissions" />
-
-            <TextView
-                android:id="@+id/shell_output"
-                android:layout_width="match_parent"
-                android:layout_height="200dp"
-                android:layout_marginTop="10dp"
-                android:background="@android:color/white"
-                android:padding="10dp"
-                android:scrollbars="vertical"
-                android:text="Shell output will appear here..."
-                android:textIsSelectable="true"
-                android:textSize="12sp"
-                android:fontFamily="monospace" />
-
-        </LinearLayout>
-
-    </ScrollView>
+    <Button
+        android:id="@+id/check_updates_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Check for Updates"
+        android:textSize="16sp"
+        android:onClick="checkForUpdates" />
 
 </LinearLayout>
