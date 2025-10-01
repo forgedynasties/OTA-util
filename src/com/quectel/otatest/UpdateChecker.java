@@ -1,64 +1,144 @@
 package com.quectel.otatest;
 
 import android.util.Log;
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
 
 public class UpdateChecker {
     private static final String TAG = "UpdateChecker";
-    private static final String UPDATE_URL = "http://10.32.1.11:8080/update.zip";
-    private static final int TIMEOUT_MS = 10000; // 10 seconds
     
     /**
-     * Check if the update file exists
-     * @return true if file exists and is accessible, false otherwise
+     * Response class for update check results
+     */
+    public static class UpdateCheckResult {
+        public boolean updateAvailable;
+        public String packageUrl;
+        public String newBuildId;
+        public String patchNotes;
+        public String errorMessage;
+        
+        public UpdateCheckResult(boolean available) {
+            this.updateAvailable = available;
+        }
+    }
+    
+    /**
+     * Check if updates are available using OTA API
+     * @return true if update is available, false otherwise (for backward compatibility)
      */
     public static boolean checkUpdateExists() {
-        HttpURLConnection connection = null;
-        long startTime = System.currentTimeMillis();
+        Log.i(TAG, "=== Starting API-based Update Check ===");
         
         try {
-            Log.i(TAG, "Starting update check for URL: " + UPDATE_URL);
-            Log.d(TAG, "Connection timeout: " + TIMEOUT_MS + "ms, Read timeout: " + TIMEOUT_MS + "ms");
+            // Get current device build ID
+            String currentBuildId = DeviceUtils.getBuildId();
+            Log.d(TAG, "Current device build ID: " + currentBuildId);
             
-            URL url = new URL(UPDATE_URL);
-            Log.d(TAG, "Created URL object, opening connection...");
+            // Call API to check for updates
+            OTAApiClient.UpdateCheckResponse response = OTAApiClient.checkForUpdates(currentBuildId);
             
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("HEAD");
-            connection.setConnectTimeout(TIMEOUT_MS);
-            connection.setReadTimeout(TIMEOUT_MS);
-            connection.setInstanceFollowRedirects(true);
-            
-            Log.d(TAG, "Connection configured, sending HEAD request...");
-            int responseCode = connection.getResponseCode();
-            String responseMessage = connection.getResponseMessage();
-            
-            boolean exists = (responseCode == HttpURLConnection.HTTP_OK);
-            long duration = System.currentTimeMillis() - startTime;
-            
-            Log.i(TAG, "Update check completed in " + duration + "ms");
-            Log.d(TAG, "Response: " + responseCode + " " + responseMessage + ", update exists: " + exists);
-            
-            if (exists) {
-                Log.i(TAG, "✓ Update file is available at server");
-            } else {
-                Log.w(TAG, "✗ Update file not found (HTTP " + responseCode + ")");
+            if (response.errorMessage != null) {
+                Log.e(TAG, "API update check failed: " + response.errorMessage);
+                return false;
             }
             
-            return exists;
+            Log.i(TAG, "API update check completed - Update available: " + response.updateAvailable);
+            return response.updateAvailable;
             
-        } catch (IOException e) {
-            long duration = System.currentTimeMillis() - startTime;
-            Log.e(TAG, "Update check failed after " + duration + "ms: " + e.getMessage());
-            Log.e(TAG, "Exception type: " + e.getClass().getSimpleName());
+        } catch (Exception e) {
+            Log.e(TAG, "Exception during API update check: " + e.getMessage(), e);
             return false;
-        } finally {
-            if (connection != null) {
-                Log.d(TAG, "Closing HTTP connection");
-                connection.disconnect();
+        }
+    }
+    
+    /**
+     * Check for updates using OTA API with detailed results
+     * @return UpdateCheckResult with detailed information
+     */
+    public static UpdateCheckResult checkUpdateExistsDetailed() {
+        Log.i(TAG, "=== Starting Detailed API Update Check ===");
+        
+        try {
+            // Get current device build ID
+            String currentBuildId = DeviceUtils.getBuildId();
+            Log.d(TAG, "Current device build ID for detailed check: " + currentBuildId);
+            
+            // Call API to check for updates
+            OTAApiClient.UpdateCheckResponse apiResponse = OTAApiClient.checkForUpdates(currentBuildId);
+            
+            UpdateCheckResult result = new UpdateCheckResult(apiResponse.updateAvailable);
+            
+            if (apiResponse.errorMessage != null) {
+                Log.e(TAG, "Detailed API update check failed: " + apiResponse.errorMessage);
+                result.errorMessage = apiResponse.errorMessage;
+                return result;
             }
+            
+            if (apiResponse.updateAvailable) {
+                result.packageUrl = apiResponse.packageUrl;
+                result.newBuildId = apiResponse.newBuildId;
+                result.patchNotes = apiResponse.patchNotes;
+                
+                Log.i(TAG, "✓ Detailed update check - Update available!");
+                Log.d(TAG, "New build ID: " + result.newBuildId);
+                Log.d(TAG, "Package URL: " + result.packageUrl);
+                Log.d(TAG, "Patch notes: " + result.patchNotes);
+            } else {
+                Log.i(TAG, "✓ Detailed update check - System is up to date");
+            }
+            
+            return result;
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Exception during detailed API update check: " + e.getMessage(), e);
+            UpdateCheckResult result = new UpdateCheckResult(false);
+            result.errorMessage = "Exception: " + e.getMessage();
+            return result;
+        }
+    }
+    
+    /**
+     * Validate downloaded package using API checksum validation
+     * @param filePath Path to downloaded file
+     * @param buildId Build ID of the package
+     * @return true if checksum is valid, false otherwise
+     */
+    public static boolean validateDownloadedPackage(String filePath, String buildId) {
+        Log.i(TAG, "=== Starting Package Validation ===");
+        Log.d(TAG, "File path: " + filePath);
+        Log.d(TAG, "Build ID: " + buildId);
+        
+        try {
+            // Calculate SHA256 checksum
+            Log.d(TAG, "Calculating file checksum...");
+            String checksum = DeviceUtils.calculateSHA256Checksum(filePath);
+            
+            if (checksum == null) {
+                Log.e(TAG, "Failed to calculate checksum - validation failed");
+                return false;
+            }
+            
+            Log.d(TAG, "File checksum calculated: " + checksum);
+            
+            // Validate with server
+            Log.d(TAG, "Validating checksum with server...");
+            OTAApiClient.ChecksumValidationResponse response = OTAApiClient.validateChecksum(buildId, checksum);
+            
+            if (response.errorMessage != null) {
+                Log.e(TAG, "Checksum validation API call failed: " + response.errorMessage);
+                return false;
+            }
+            
+            if (response.isValid) {
+                Log.i(TAG, "✓ Package validation successful - checksum is valid");
+            } else {
+                Log.w(TAG, "✗ Package validation failed - checksum mismatch");
+                Log.w(TAG, "Server message: " + response.message);
+            }
+            
+            return response.isValid;
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Exception during package validation: " + e.getMessage(), e);
+            return false;
         }
     }
 }

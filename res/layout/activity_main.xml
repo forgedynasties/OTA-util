@@ -48,6 +48,15 @@
         android:layout_height="wrap_content"
         android:text="Check for Updates"
         android:textSize="16sp"
+        android:layout_marginBottom="10dp"
         android:onClick="checkForUpdates" />
+
+    <Button
+        android:id="@+id/api_testing_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="API Testing"
+        android:textSize="16sp"
+        android:onClick="openApiTesting" />
 
 </LinearLayout>

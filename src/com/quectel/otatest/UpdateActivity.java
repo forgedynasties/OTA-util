@@ -17,7 +17,6 @@ import android.widget.Toast;
 
 public class UpdateActivity extends Activity {
     private static final String TAG = "UpdateActivity";
-    private static final String UPDATE_URL = "http://10.32.1.11:8080/update.zip";
     
     private TextView statusText;
     private Button installButton;
@@ -27,6 +26,10 @@ public class UpdateActivity extends Activity {
     private UpdateManager updateManager;
     private PowerManager.WakeLock wakeLock;
     private boolean isUpdateAvailable = false;
+    
+    // API-based update information
+    private String updatePackageUrl = null;
+    private String newBuildId = null;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,7 +89,7 @@ public class UpdateActivity extends Activity {
             installButton.setEnabled(true);
             Log.d(TAG, "UI configured for available update");
         } else {
-            Log.i(TAG, "No update info from intent - performing server check");
+            Log.i(TAG, "No update info from intent - performing API server check");
             statusText.setText("Checking for updates...");
             installButton.setEnabled(false);
             Log.d(TAG, "UI set to checking state");
@@ -94,25 +97,41 @@ public class UpdateActivity extends Activity {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    Log.d(TAG, "Background thread started for update check");
+                    Log.d(TAG, "Background thread started for API update check");
                     
-                    final boolean available = UpdateChecker.checkUpdateExists();
-                    Log.d(TAG, "Server check result: " + available);
+                    final UpdateChecker.UpdateCheckResult result = UpdateChecker.checkUpdateExistsDetailed();
+                    Log.d(TAG, "API server check result - Available: " + result.updateAvailable);
                     
                     mainHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            Log.d(TAG, "Updating UI with server check results");
+                            Log.d(TAG, "Updating UI with API server check results");
                             
-                            if (available) {
-                                Log.i(TAG, "Server confirms update available - enabling installation");
-                                statusText.setText("Update Available!\n\nA new OTA update is ready to install.");
+                            if (result.errorMessage != null) {
+                                Log.e(TAG, "API update check failed: " + result.errorMessage);
+                                statusText.setText("Update Check Failed\n\n" + result.errorMessage + "\n\nPlease check your network connection and try again.");
+                                installButton.setText("Retry");
+                                installButton.setEnabled(true);
+                                
+                            } else if (result.updateAvailable) {
+                                Log.i(TAG, "API confirms update available - enabling installation");
+                                
+                                // Store update information for download
+                                updatePackageUrl = result.packageUrl;
+                                newBuildId = result.newBuildId;
+                                
+                                statusText.setText("Update Available!\n\nNew build: " + newBuildId + "\n\n" + 
+                                    (result.patchNotes != null ? result.patchNotes : "A new OTA update is ready to install."));
                                 installButton.setText("Install Update");
                                 installButton.setEnabled(true);
                                 isUpdateAvailable = true;
+                                
+                                Log.d(TAG, "Update package URL: " + updatePackageUrl);
+                                Log.d(TAG, "New build ID: " + newBuildId);
+                                
                             } else {
-                                Log.i(TAG, "Server confirms no update - system is current");
-                                statusText.setText("No Update Available\n\nYour system is up to date.");
+                                Log.i(TAG, "API confirms no update - system is current");
+                                statusText.setText("No Update Available\n\nYour system is up to date.\n\nCurrent build: " + DeviceUtils.getBuildId());
                                 installButton.setText("Check Again");
                                 installButton.setEnabled(true);
                             }
@@ -161,9 +180,19 @@ public class UpdateActivity extends Activity {
                         }
                     });
                     
+                    // Get download URL from API response
+                    String downloadUrl;
+                    if (updatePackageUrl != null) {
+                        downloadUrl = OTAApiClient.getDownloadUrl(updatePackageUrl);
+                        Log.d(TAG, "Using API download URL: " + downloadUrl);
+                    } else {
+                        Log.e(TAG, "No package URL available from API response");
+                        throw new RuntimeException("No package URL available");
+                    }
+                    
                     // Create DownloadManager instance and start download
                     DownloadManager downloadManager = new DownloadManager();
-                    boolean downloadSuccess = downloadManager.downloadFile(UPDATE_URL, "/data/ota_package/update.zip", 
+                    boolean downloadSuccess = downloadManager.downloadFile(downloadUrl, "/data/ota_package/update.zip", 
                         new DownloadManager.DownloadCallback() {
                             @Override
                             public void onProgress(final int progress) {
@@ -178,22 +207,17 @@ public class UpdateActivity extends Activity {
                             
                             @Override
                             public void onSuccess() {
-                                Log.d(TAG, "Download completed successfully");
+                                Log.d(TAG, "Download completed successfully - starting checksum validation");
                                 mainHandler.post(new Runnable() {
                                     @Override
                                     public void run() {
                                         progressDialog.setProgress(100);
-                                        progressDialog.setMessage("Step 1: Download complete!");
+                                        progressDialog.setMessage("Step 1: Download complete - Validating...");
                                     }
                                 });
                                 
-                                // Wait a moment then start installation
-                                mainHandler.postDelayed(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        startInstallation();
-                                    }
-                                }, 1000);
+                                // Validate checksum before proceeding
+                                validateAndProceed();
                             }
                             
                             @Override
@@ -217,6 +241,78 @@ public class UpdateActivity extends Activity {
                         public void run() {
                             progressDialog.dismiss();
                             showError("Download error: " + e.getMessage());
+                        }
+                    });
+                }
+            }
+        }).start();
+    }
+    
+    /**
+     * Validate downloaded package checksum before proceeding with installation
+     */
+    private void validateAndProceed() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Log.i(TAG, "=== Starting Package Checksum Validation ===");
+                    
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            progressDialog.setMessage("Step 1: Validating package integrity...");
+                            progressDialog.setProgress(0);
+                        }
+                    });
+                    
+                    if (newBuildId == null) {
+                        Log.e(TAG, "No build ID available for validation");
+                        throw new RuntimeException("No build ID available for checksum validation");
+                    }
+                    
+                    // Validate the downloaded package
+                    boolean isValid = UpdateChecker.validateDownloadedPackage("/data/ota_package/update.zip", newBuildId);
+                    
+                    if (isValid) {
+                        Log.i(TAG, "✓ Package validation successful - proceeding with installation");
+                        
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                progressDialog.setMessage("Step 1: Package validated successfully!");
+                                progressDialog.setProgress(100);
+                            }
+                        });
+                        
+                        // Wait a moment then start installation
+                        mainHandler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                startInstallation();
+                            }
+                        }, 1500);
+                        
+                    } else {
+                        Log.e(TAG, "✗ Package validation failed - checksum mismatch");
+                        
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                progressDialog.dismiss();
+                                showError("Package validation failed. The downloaded file may be corrupted. Please try again.");
+                            }
+                        });
+                    }
+                    
+                } catch (Exception e) {
+                    Log.e(TAG, "Exception during package validation: " + e.getMessage(), e);
+                    
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            progressDialog.dismiss();
+                            showError("Package validation error: " + e.getMessage());
                         }
                     });
                 }

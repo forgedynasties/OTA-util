@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F6F6F6"
+    android:orientation="vertical">
+
+    <!-- Header with back button -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="?android:attr/actionBarSize"
+        android:background="@android:color/white"
+        android:elevation="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp">
+
+        <Button
+            android:id="@+id/back_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:text="←"
+            android:textSize="24sp"
+            android:onClick="finish" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="API Testing"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:textColor="@android:color/black" />
+
+        <View
+            android:layout_width="48dp"
+            android:layout_height="48dp" />
+
+    </LinearLayout>
+
+    <!-- Main content -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Status display area -->
+            <TextView
+                android:id="@+id/api_status_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="API Testing Interface"
+                android:textSize="14sp"
+                android:padding="16dp"
+                android:background="@android:color/white"
+                android:layout_marginBottom="20dp"
+                android:textColor="@android:color/black"
+                android:elevation="2dp"
+                android:minHeight="200dp"
+                android:fontFamily="monospace" />
+
+            <!-- API Test Buttons -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="API Endpoint Tests"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp"
+                android:textColor="@android:color/black" />
+
+            <Button
+                android:id="@+id/test_connectivity_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Test API Connectivity"
+                android:textSize="16sp"
+                android:padding="12dp"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/test_update_check_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Test Update Check API"
+                android:textSize="16sp"
+                android:padding="12dp"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/test_checksum_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Test Checksum Validation API"
+                android:textSize="16sp"
+                android:padding="12dp"
+                android:layout_marginBottom="20dp" />
+
+            <!-- Device Info Section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Device Information"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp"
+                android:textColor="@android:color/black" />
+
+            <Button
+                android:id="@+id/get_build_info_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Show Build Information"
+                android:textSize="16sp"
+                android:padding="12dp"
+                android:layout_marginBottom="20dp" />
+
+            <!-- Instructions -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Instructions:\n\n• Test API Connectivity: Verify server connection and authentication\n• Test Update Check: Query server for available updates\n• Test Checksum Validation: Verify package integrity validation\n• Show Build Information: Display current device build details\n\nResults will appear in the status area above."
+                android:textSize="12sp"
+                android:padding="16dp"
+                android:background="@android:color/white"
+                android:textColor="@android:color/black"
+                android:elevation="1dp" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</LinearLayout>

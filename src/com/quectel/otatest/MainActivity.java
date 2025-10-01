@@ -39,8 +39,8 @@ public class MainActivity extends Activity {
 
     private void displayCurrentBuildId() {
         try {
-            String buildId = SystemProperties.get("ro.build.display.id", "Unknown");
-            buildIdText.setText(buildId);
+            String buildId = DeviceUtils.getBuildId();
+            buildIdText.setText("Current Build ID: " + buildId);
             Log.d(TAG, "Build ID displayed: " + buildId);
         } catch (Exception e) {
             Log.e(TAG, "Failed to get build ID: " + e.getMessage());
@@ -76,5 +76,11 @@ public class MainActivity extends Activity {
                 });
             }
         }).start();
+    }
+    
+    public void openApiTesting(View v) {
+        Log.i(TAG, "API Testing button clicked - launching ApiTestActivity");
+        Intent intent = new Intent(MainActivity.this, ApiTestActivity.class);
+        startActivity(intent);
     }
 }

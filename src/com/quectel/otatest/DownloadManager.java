@@ -37,6 +37,14 @@ public class DownloadManager {
             connection = (HttpURLConnection) url.openConnection();
             connection.setConnectTimeout(TIMEOUT_MS);
             connection.setReadTimeout(TIMEOUT_MS);
+            
+            // Add API authentication for OTA server downloads
+            if (urlString.contains("10.32.1.11:8000")) {
+                String authHeader = OTAApiClient.getAuthorizationHeader();
+                connection.setRequestProperty("Authorization", authHeader);
+                Log.d(TAG, "Added API authentication header for OTA server download");
+            }
+            
             Log.d(TAG, "Connection timeouts configured");
             
             Log.d(TAG, "Connecting to server...");
