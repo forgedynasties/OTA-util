@@ -1,8 +1,10 @@
 package com.quectel.otatest;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -329,8 +331,7 @@ public class UpdateActivity extends Activity {
                         public void onSuccess() {
                             Log.i(TAG, "System update completed successfully");
                             progressDialog.dismiss();
-                            statusText.setText("System update completed successfully!\n\nThe device will reboot shortly to complete the installation.");
-                            Toast.makeText(UpdateActivity.this, "Update completed! Device will reboot...", Toast.LENGTH_LONG).show();
+                            showRebootPrompt();
                         }
                         
                         @Override
@@ -353,6 +354,126 @@ public class UpdateActivity extends Activity {
                 }
             });
         }
+    }
+    
+    /**
+     * Show reboot prompt after successful update installation
+     */
+    private void showRebootPrompt() {
+        Log.i(TAG, "=== Update Installation Completed Successfully ===");
+        
+        statusText.setText("Update Installation Complete!\n\nThe system update has been installed successfully. The device needs to reboot to complete the installation process.");
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Update Complete");
+        builder.setMessage("The system update has been installed successfully!\n\nYour device needs to reboot now to complete the installation. All unsaved data will be lost.\n\nWould you like to reboot now?");
+        builder.setIcon(R.drawable.easyftptest);
+        
+        // Reboot Now button
+        builder.setPositiveButton("Reboot Now", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                Log.i(TAG, "User confirmed reboot - initiating device reboot");
+                dialog.dismiss();
+                performReboot();
+            }
+        });
+        
+        // Reboot Later button
+        builder.setNegativeButton("Reboot Later", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                Log.i(TAG, "User chose to reboot later");
+                dialog.dismiss();
+                showRebootLaterMessage();
+            }
+        });
+        
+        builder.setCancelable(false); // Prevent dismissing without choice
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+        
+        Log.d(TAG, "Reboot confirmation dialog displayed");
+    }
+    
+    /**
+     * Perform device reboot using shell command
+     */
+    private void performReboot() {
+        Log.i(TAG, "=== Initiating Device Reboot ===");
+        
+        try {
+            // Show reboot countdown
+            final ProgressDialog rebootDialog = new ProgressDialog(this);
+            rebootDialog.setTitle("Rebooting Device");
+            rebootDialog.setMessage("Device will reboot in 5 seconds...");
+            rebootDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            rebootDialog.setMax(5);
+            rebootDialog.setCancelable(false);
+            rebootDialog.show();
+            
+            // Countdown before reboot
+            final Handler countdownHandler = new Handler(Looper.getMainLooper());
+            for (int i = 0; i < 5; i++) {
+                final int countdown = 5 - i;
+                countdownHandler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        rebootDialog.setProgress(5 - countdown);
+                        rebootDialog.setMessage("Device will reboot in " + countdown + " seconds...");
+                        
+                        if (countdown == 0) {
+                            rebootDialog.setMessage("Rebooting now...");
+                            Log.i(TAG, "Executing reboot command");
+                            
+                            // Execute reboot command
+                            new Thread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        String rebootResult = shellManager.executeCommand("reboot");
+                                        Log.d(TAG, "Reboot command result: " + rebootResult);
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "Failed to execute reboot command: " + e.getMessage(), e);
+                                        // Fallback reboot methods
+                                        try {
+                                            Runtime.getRuntime().exec("su -c reboot");
+                                        } catch (Exception ex) {
+                                            Log.e(TAG, "Fallback reboot also failed: " + ex.getMessage(), ex);
+                                        }
+                                    }
+                                }
+                            }).start();
+                        }
+                    }
+                }, i * 1000);
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error during reboot process: " + e.getMessage(), e);
+            Toast.makeText(this, "Failed to reboot device. Please reboot manually.", Toast.LENGTH_LONG).show();
+        }
+    }
+    
+    /**
+     * Show message when user chooses to reboot later
+     */
+    private void showRebootLaterMessage() {
+        Log.i(TAG, "Displaying reboot later message");
+        
+        statusText.setText("Update Installation Complete!\n\nThe system update has been installed successfully. Please reboot your device manually when convenient to complete the installation.\n\nGo to Settings → System → Restart or hold the power button to restart.");
+        
+        installButton.setText("Reboot Now");
+        installButton.setEnabled(true);
+        installButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                performReboot();
+            }
+        });
+        
+        Toast.makeText(this, "Please reboot your device to complete the update installation.", Toast.LENGTH_LONG).show();
     }
     
     private void showError(String error) {
