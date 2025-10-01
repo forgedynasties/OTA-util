@@ -1,172 +1,80 @@
 package com.quectel.otatest;
 
 import android.app.Activity;
-import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.PowerManager;
+import android.os.SystemProperties;
 import android.util.Log;
 import android.view.View;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import android.widget.TextView;
+import android.widget.Toast;
 
 public class MainActivity extends Activity {
     private static final String TAG = "OTATEST";
     
-    private UIManager uiManager;
-    private DownloadManager downloadManager;
-    private UpdateManager updateManager;
-    private ShellManager shellManager;
-    
-    private ExecutorService executor;
+    private TextView buildIdText;
     private Handler mainHandler;
-    private PowerManager.WakeLock wakeLock;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.i(TAG, "Activity starting");
+        Log.i(TAG, "MainActivity starting");
         
         setContentView(R.layout.activity_main);
         
         initializeComponents();
+        displayCurrentBuildId();
         
-        Log.i(TAG, "Activity initialized successfully");
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        cleanup();
+        Log.i(TAG, "MainActivity initialized successfully");
     }
 
     private void initializeComponents() {
-        // Initialize threading
-        executor = Executors.newCachedThreadPool();
         mainHandler = new Handler(Looper.getMainLooper());
+        buildIdText = findViewById(R.id.build_id_text);
         
-        // Initialize power management
-        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        wakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "OTA:Wakelock");
-        
-        // Initialize managers
-        uiManager = new UIManager(this);
-        downloadManager = new DownloadManager(mainHandler);
-        updateManager = new UpdateManager(mainHandler, wakeLock);
-        shellManager = new ShellManager();
-        
-        uiManager.hideKeyboard();
-        
-        Log.d(TAG, "All components initialized");
+        Log.d(TAG, "Components initialized");
     }
 
-    private void cleanup() {
-        if (executor != null && !executor.isShutdown()) {
-            executor.shutdown();
+    private void displayCurrentBuildId() {
+        try {
+            String buildId = SystemProperties.get("ro.build.display.id", "Unknown");
+            buildIdText.setText(buildId);
+            Log.d(TAG, "Build ID displayed: " + buildId);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get build ID: " + e.getMessage());
+            buildIdText.setText("Unable to retrieve build ID");
         }
-        if (wakeLock != null && wakeLock.isHeld()) {
-            wakeLock.release();
-        }
-        if (uiManager != null) {
-            uiManager.dismissDialogs();
-        }
-        Log.d(TAG, "Resources cleaned up");
     }
 
-    // === BUTTON HANDLERS ===
-
-    public void download(View v) {
-        Log.i(TAG, "Download initiated");
-        String url = uiManager.getUrlText();
+    public void checkForUpdates(View v) {
+        Log.i(TAG, "Check for updates initiated");
+        Toast.makeText(this, "Checking for updates...", Toast.LENGTH_SHORT).show();
         
-        if (url.isEmpty()) {
-            uiManager.showMessage("Please enter a valid URL");
-            return;
-        }
-        
-        uiManager.setDownloadButtonEnabled(false);
-        uiManager.showDownloadDialog();
-        
-        executor.execute(() -> downloadManager.download(url, new DownloadManager.DownloadCallback() {
+        new Thread(new Runnable() {
             @Override
-            public void onProgress(int progress) {
-                uiManager.updateDownloadProgress(progress);
+            public void run() {
+                Log.d(TAG, "Background thread started for update check");
+                
+                final boolean updateAvailable = UpdateChecker.checkUpdateExists();
+                Log.d(TAG, "Update check result: " + updateAvailable);
+                
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (updateAvailable) {
+                            Log.i(TAG, "Update available - launching UpdateActivity");
+                            Intent intent = new Intent(MainActivity.this, UpdateActivity.class);
+                            intent.putExtra("update_available", true);
+                            startActivity(intent);
+                        } else {
+                            Log.i(TAG, "No update available");
+                            Toast.makeText(MainActivity.this, "No updates available. Your system is up to date.", Toast.LENGTH_LONG).show();
+                        }
+                    }
+                });
             }
-            
-            @Override
-            public void onSuccess() {
-                uiManager.dismissDialogs();
-                uiManager.setDownloadButtonEnabled(true);
-                uiManager.showMessage("Download completed successfully!");
-            }
-            
-            @Override
-            public void onError(String error) {
-                uiManager.dismissDialogs();
-                uiManager.setDownloadButtonEnabled(true);
-                uiManager.showMessage("Download failed: " + error);
-            }
-        }));
-    }
-
-    public void update(View v) {
-        Log.i(TAG, "Update initiated");
-        
-        uiManager.setUpdateButtonEnabled(false);
-        uiManager.showUpdateDialog();
-        
-        executor.execute(() -> updateManager.performUpdate(new UpdateManager.UpdateCallback() {
-            @Override
-            public void onProgress(int progress) {
-                uiManager.updateUpdateProgress(progress);
-            }
-            
-            @Override
-            public void onSuccess() {
-                uiManager.dismissDialogs();
-                uiManager.showMessage("Update completed successfully!");
-            }
-            
-            @Override
-            public void onError(String error) {
-                uiManager.dismissDialogs();
-                uiManager.setUpdateButtonEnabled(true);
-                uiManager.showMessage(error);
-            }
-        }));
-    }
-
-    public void testShell(View v) {
-        Log.i(TAG, "Shell test initiated");
-        executor.execute(() -> {
-            String output = shellManager.executeCommand("echo 'Shell test successful' && date");
-            mainHandler.post(() -> uiManager.setShellOutputText("Shell Test Output:\n" + output));
-        });
-    }
-
-    public void executeShell(View v) {
-        String command = uiManager.getShellCommandText();
-        if (command.isEmpty()) {
-            uiManager.setShellOutputText("Please enter a command");
-            return;
-        }
-        
-        Log.i(TAG, "Executing shell command: " + command);
-        executor.execute(() -> {
-            String output = shellManager.executeCommand(command);
-            mainHandler.post(() -> 
-                uiManager.setShellOutputText("Command: " + command + "\n\nOutput:\n" + output)
-            );
-        });
-    }
-
-    public void checkPermissions(View v) {
-        Log.i(TAG, "Checking permissions");
-        executor.execute(() -> {
-            String permInfo = shellManager.getPermissionInfo();
-            mainHandler.post(() -> uiManager.setShellOutputText(permInfo));
-        });
+        }).start();
     }
 }

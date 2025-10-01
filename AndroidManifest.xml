@@ -28,6 +28,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
+        <activity
+            android:name=".UpdateActivity"
+            android:label="System Update"
+            android:exported="false" />
 
         <receiver android:name=".MyBootReceiver" android:exported="true">
         <intent-filter>

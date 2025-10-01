@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F6F6F6"
+    android:orientation="vertical">
+
+    <!-- Header with back button -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="?android:attr/actionBarSize"
+        android:background="@android:color/white"
+        android:elevation="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp">
+
+        <Button
+            android:id="@+id/back_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:text="←"
+            android:textSize="24sp"
+            android:onClick="finish" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="System Update"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:textColor="@android:color/black" />
+
+        <View
+            android:layout_width="48dp"
+            android:layout_height="48dp" />
+
+    </LinearLayout>
+
+    <!-- Main content -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <ImageView
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:layout_gravity="center"
+                android:layout_marginBottom="32dp"
+                android:src="@drawable/easyftptest" />
+
+            <TextView
+                android:id="@+id/status_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Checking for updates..."
+                android:textSize="16sp"
+                android:lineSpacingExtra="4dp"
+                android:gravity="center"
+                android:padding="24dp"
+                android:background="@android:color/white"
+                android:layout_marginBottom="32dp"
+                android:textColor="@android:color/black"
+                android:elevation="2dp"
+                android:minHeight="200dp" />
+
+            <Button
+                android:id="@+id/install_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Install Update"
+                android:textSize="18sp"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp"
+                android:enabled="false" />
+
+            <Button
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Cancel"
+                android:textSize="16sp"
+                android:padding="12dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:onClick="finish" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</LinearLayout>

@@ -10,10 +10,22 @@ public class MyBootReceiver extends BroadcastReceiver {
     
     @Override
     public void onReceive(Context context, Intent intent) {
+        Log.d(TAG, "onReceive called with action: " + (intent != null ? intent.getAction() : "null"));
+        
         if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
-            Log.d(TAG, "Boot completed event received.");
-            Intent serviceIntent = new Intent(context, MyService.class);
-            context.startForegroundService(serviceIntent);
+            Log.i(TAG, "Boot completed event received - starting OTA service");
+            Log.d(TAG, "Creating service intent for MyService");
+            
+            try {
+                Intent serviceIntent = new Intent(context, MyService.class);
+                Log.d(TAG, "Starting foreground service...");
+                context.startForegroundService(serviceIntent);
+                Log.i(TAG, "MyService started successfully after boot");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to start MyService after boot: " + e.getMessage(), e);
+            }
+        } else {
+            Log.w(TAG, "Received non-boot intent: " + intent.getAction());
         }
     }
 }
