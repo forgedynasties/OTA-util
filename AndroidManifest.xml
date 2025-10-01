@@ -32,8 +32,7 @@
         <activity
             android:name=".UpdateActivity"
             android:label="System Update"
-            android:exported="false"
-            android:theme="@android:style/Theme.Material.Light.Dialog" />
+            android:exported="false" />
 
         <receiver android:name=".MyBootReceiver" android:exported="true">
         <intent-filter>
