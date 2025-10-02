@@ -157,7 +157,54 @@ public class UpdateActivity extends Activity {
             return;
         }
         
+        // Safety check: ensure we have API data before proceeding
+        if (updatePackageUrl == null || newBuildId == null) {
+            Log.w(TAG, "Missing API data - forcing fresh update check");
+            Log.d(TAG, "updatePackageUrl: " + (updatePackageUrl != null ? updatePackageUrl : "NULL"));
+            Log.d(TAG, "newBuildId: " + (newBuildId != null ? newBuildId : "NULL"));
+            
+            statusText.setText("Verifying update information...");
+            installButton.setEnabled(false);
+            
+            // Force a fresh API check
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    final UpdateChecker.UpdateCheckResult result = UpdateChecker.checkUpdateExistsDetailed();
+                    
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (result.errorMessage != null) {
+                                showError("Update verification failed: " + result.errorMessage);
+                                return;
+                            }
+                            
+                            if (result.updateAvailable && result.packageUrl != null) {
+                                updatePackageUrl = result.packageUrl;
+                                newBuildId = result.newBuildId;
+                                Log.i(TAG, "Fresh API check completed - packageUrl: " + updatePackageUrl);
+                                
+                                // Now proceed with installation
+                                proceedWithInstallation();
+                            } else {
+                                showError("No update available or missing package information");
+                            }
+                        }
+                    });
+                }
+            }).start();
+            return;
+        }
+        
+        proceedWithInstallation();
+    }
+    
+    private void proceedWithInstallation() {
         Log.d(TAG, "Starting update process...");
+        Log.d(TAG, "Final check - updatePackageUrl: " + (updatePackageUrl != null ? updatePackageUrl : "NULL"));
+        Log.d(TAG, "Final check - newBuildId: " + (newBuildId != null ? newBuildId : "NULL"));
+        
         installButton.setEnabled(false);
         
         // Show progress dialog
