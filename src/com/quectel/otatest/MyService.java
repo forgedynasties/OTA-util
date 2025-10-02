@@ -185,15 +185,19 @@ public class MyService extends Service {
                 long checkStartTime = System.currentTimeMillis();
                 
                 try {
-                    Log.i(TAG, "Initiating server connectivity check...");
-                    boolean updateAvailable = UpdateChecker.checkUpdateExists();
+                    Log.i(TAG, "Initiating detailed API update check...");
+                    UpdateChecker.UpdateCheckResult result = UpdateChecker.checkUpdateExistsDetailed();
                     
                     long checkDuration = System.currentTimeMillis() - checkStartTime;
-                    Log.d(TAG, "Update check completed in " + checkDuration + "ms");
+                    Log.d(TAG, "Detailed update check completed in " + checkDuration + "ms");
                     
-                    if (updateAvailable) {
+                    if (result.errorMessage != null) {
+                        Log.e(TAG, "API update check failed: " + result.errorMessage);
+                        showUpdateCheckErrorNotification();
+                    } else if (result.updateAvailable) {
                         Log.i(TAG, "✓ UPDATE AVAILABLE - Notifying user");
-                        showUpdateAvailableNotification();
+                        Log.d(TAG, "Update details - New build: " + result.newBuildId + ", Package: " + result.packageUrl);
+                        showUpdateAvailableNotification(result);
                     } else {
                         Log.i(TAG, "✓ System is up to date - No update needed");
                         showNoUpdateNotification();
@@ -215,7 +219,7 @@ public class MyService extends Service {
     /**
      * Show notification when update is available
      */
-    private void showUpdateAvailableNotification() {
+    private void showUpdateAvailableNotification(UpdateChecker.UpdateCheckResult result) {
         Log.i(TAG, "=== Creating Update Available Notification ===");
         
         NotificationManager notificationManager = 
@@ -227,7 +231,13 @@ public class MyService extends Service {
             try {
                 Intent updateIntent = new Intent(this, UpdateActivity.class);
                 updateIntent.putExtra("update_available", true);
-                Log.d(TAG, "Created intent for UpdateActivity with update_available=true");
+                updateIntent.putExtra("package_url", result.packageUrl);
+                updateIntent.putExtra("new_build_id", result.newBuildId);
+                updateIntent.putExtra("patch_notes", result.patchNotes);
+                Log.d(TAG, "Created intent with full update details:");
+                Log.d(TAG, "  package_url: " + result.packageUrl);
+                Log.d(TAG, "  new_build_id: " + result.newBuildId);
+                Log.d(TAG, "  patch_notes: " + result.patchNotes);
                 
                 int flags = PendingIntent.FLAG_UPDATE_CURRENT;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

@@ -83,11 +83,21 @@ public class UpdateActivity extends Activity {
         Log.d(TAG, "Intent extra 'update_available': " + isUpdateAvailable);
         
         if (isUpdateAvailable) {
-            Log.i(TAG, "Update available from intent - configuring UI for installation");
-            statusText.setText("Update Available!\n\nA new OTA update is ready to install. This will update your system to the latest version.");
+            // Get update details from intent (from MyService notification)
+            updatePackageUrl = getIntent().getStringExtra("package_url");
+            newBuildId = getIntent().getStringExtra("new_build_id");
+            String patchNotes = getIntent().getStringExtra("patch_notes");
+            
+            Log.i(TAG, "Update available from intent - got full update details:");
+            Log.d(TAG, "  updatePackageUrl: " + (updatePackageUrl != null ? updatePackageUrl : "NULL"));
+            Log.d(TAG, "  newBuildId: " + (newBuildId != null ? newBuildId : "NULL"));
+            Log.d(TAG, "  patchNotes: " + (patchNotes != null ? patchNotes : "NULL"));
+            
+            statusText.setText("Update Available!\n\nNew build: " + newBuildId + "\n\n" + 
+                (patchNotes != null ? patchNotes : "A new OTA update is ready to install."));
             installButton.setText("Install Update");
             installButton.setEnabled(true);
-            Log.d(TAG, "UI configured for available update");
+            Log.d(TAG, "UI configured for available update with API details");
         } else {
             Log.i(TAG, "No update info from intent - performing API server check");
             statusText.setText("Checking for updates...");
