@@ -9,28 +9,62 @@ public class UpdateChecker {
     private static OTAApiClient.UpdateResponse lastUpdateResponse = null;
     
     /**
-     * Get the current build ID for this device
-     * This uses Android's Build.DISPLAY which typically contains build information
-     * You can customize this method to use your specific build ID scheme
-     * @return The current build ID
+     * Get the current build ID for this device using getprop ro.build.id
+     * @return The current build ID from system property
      */
     public static String getCurrentBuildId() {
         if (cachedBuildId == null) {
-            // You can customize this logic based on how your build IDs are structured
-            // For now, using a combination of Build properties that are commonly used
-            cachedBuildId = "build-" + Build.DISPLAY.replaceAll("[^a-zA-Z0-9-]", "-").toLowerCase();
-            
-            // Alternative options you might want to use instead:
-            // cachedBuildId = Build.ID; // Build ID from the build system
-            // cachedBuildId = "build-" + Build.VERSION.INCREMENTAL; // Incremental version
-            // cachedBuildId = Build.FINGERPRINT; // Full build fingerprint
+            try {
+                Log.d(TAG, "=== Retrieving Build ID from System Properties ===");
+                
+                // First try to get ro.build.id using getprop command
+                Process process = Runtime.getRuntime().exec("getprop ro.build.id");
+                java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(process.getInputStream()));
+                
+                String buildId = reader.readLine();
+                reader.close();
+                process.waitFor();
+                
+                if (buildId != null && !buildId.trim().isEmpty()) {
+                    cachedBuildId = buildId.trim();
+                    Log.i(TAG, "✅ Build ID from getprop ro.build.id: " + cachedBuildId);
+                } else {
+                    Log.w(TAG, "⚠️ getprop ro.build.id returned empty, using fallback");
+                    // Fallback to Build.ID if getprop fails
+                    cachedBuildId = Build.ID;
+                    Log.i(TAG, "📋 Fallback Build ID from Build.ID: " + cachedBuildId);
+                }
+                
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Failed to get build ID via getprop: " + e.getMessage());
+                Log.e(TAG, "Using Build.ID as fallback");
+                
+                // Fallback to Build.ID if getprop command fails
+                cachedBuildId = Build.ID;
+                Log.i(TAG, "📋 Fallback Build ID from Build.ID: " + cachedBuildId);
+            }
             
             Log.i(TAG, "=== Build ID Information ===");
-            Log.i(TAG, "Generated Build ID: " + cachedBuildId);
+            Log.i(TAG, "Final Build ID: " + cachedBuildId);
             Log.d(TAG, "Android Build.DISPLAY: " + Build.DISPLAY);
             Log.d(TAG, "Android Build.ID: " + Build.ID);
             Log.d(TAG, "Android Build.VERSION.INCREMENTAL: " + Build.VERSION.INCREMENTAL);
             Log.d(TAG, "Android Build.FINGERPRINT: " + Build.FINGERPRINT);
+            
+            // Also try to log the getprop command result for debugging
+            try {
+                Process debugProcess = Runtime.getRuntime().exec("getprop ro.build.id");
+                java.io.BufferedReader debugReader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(debugProcess.getInputStream()));
+                String debugResult = debugReader.readLine();
+                debugReader.close();
+                debugProcess.waitFor();
+                Log.d(TAG, "getprop ro.build.id result: '" + debugResult + "'");
+            } catch (Exception debugE) {
+                Log.d(TAG, "Could not log getprop result: " + debugE.getMessage());
+            }
+            
             Log.i(TAG, "===========================");
         }
         return cachedBuildId;
