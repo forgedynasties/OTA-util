@@ -73,9 +73,19 @@ public class UpdateChecker {
             }
             
             if (apiResponse.updateAvailable) {
+                Log.d(TAG, "Processing available update - API response fields:");
+                Log.d(TAG, "  apiResponse.packageUrl: " + (apiResponse.packageUrl != null ? apiResponse.packageUrl : "NULL"));
+                Log.d(TAG, "  apiResponse.newBuildId: " + (apiResponse.newBuildId != null ? apiResponse.newBuildId : "NULL"));
+                Log.d(TAG, "  apiResponse.patchNotes: " + (apiResponse.patchNotes != null ? apiResponse.patchNotes : "NULL"));
+                
                 result.packageUrl = apiResponse.packageUrl;
                 result.newBuildId = apiResponse.newBuildId;
                 result.patchNotes = apiResponse.patchNotes;
+                
+                Log.d(TAG, "Assigned to result object:");
+                Log.d(TAG, "  result.packageUrl: " + (result.packageUrl != null ? result.packageUrl : "NULL"));
+                Log.d(TAG, "  result.newBuildId: " + (result.newBuildId != null ? result.newBuildId : "NULL"));
+                Log.d(TAG, "  result.patchNotes: " + (result.patchNotes != null ? result.patchNotes : "NULL"));
                 
                 Log.i(TAG, "✓ Detailed update check - Update available!");
                 Log.d(TAG, "New build ID: " + result.newBuildId);

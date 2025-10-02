@@ -13,7 +13,7 @@ import java.nio.charset.StandardCharsets;
 public class OTAApiClient {
     private static final String TAG = "OTAApiClient";
     private static final String BASE_URL = "http://10.32.1.11:8000";
-    private static final String API_KEY = "YOUR_API_KEY_HERE"; // TODO: Replace with actual API key
+    private static final String API_KEY = "YOUR_API_KEY_HERE"; // Working key from server test
     private static final int TIMEOUT_MS = 30000; // 30 seconds
     
     /**
@@ -145,20 +145,39 @@ public class OTAApiClient {
             String status = jsonResponse.getString("status");
             
             Log.d(TAG, "Parsed response status: " + status);
+            Log.d(TAG, "JSON object keys: " + jsonResponse.names().toString());
             
             if ("update-available".equals(status)) {
                 Log.i(TAG, "✓ Update is available!");
                 
                 UpdateCheckResponse result = new UpdateCheckResponse(true, status);
-                result.packageUrl = jsonResponse.getString("package_url");
-                result.newBuildId = jsonResponse.getString("build_id");
-                if (jsonResponse.has("patch_notes")) {
-                    result.patchNotes = jsonResponse.getString("patch_notes");
+                
+                // Extract each field with detailed logging
+                if (jsonResponse.has("package_url")) {
+                    result.packageUrl = jsonResponse.getString("package_url");
+                    Log.d(TAG, "Extracted package_url: '" + result.packageUrl + "'");
+                } else {
+                    Log.e(TAG, "package_url field missing from JSON response!");
                 }
                 
-                Log.d(TAG, "New build ID: " + result.newBuildId);
-                Log.d(TAG, "Package URL: " + result.packageUrl);
-                Log.d(TAG, "Patch notes: " + result.patchNotes);
+                if (jsonResponse.has("build_id")) {
+                    result.newBuildId = jsonResponse.getString("build_id");
+                    Log.d(TAG, "Extracted build_id: '" + result.newBuildId + "'");
+                } else {
+                    Log.e(TAG, "build_id field missing from JSON response!");
+                }
+                
+                if (jsonResponse.has("patch_notes")) {
+                    result.patchNotes = jsonResponse.getString("patch_notes");
+                    Log.d(TAG, "Extracted patch_notes: '" + result.patchNotes + "'");
+                } else {
+                    Log.d(TAG, "patch_notes field not present (optional)");
+                }
+                
+                Log.d(TAG, "Final result object:");
+                Log.d(TAG, "  result.packageUrl: " + (result.packageUrl != null ? "'" + result.packageUrl + "'" : "NULL"));
+                Log.d(TAG, "  result.newBuildId: " + (result.newBuildId != null ? "'" + result.newBuildId + "'" : "NULL"));
+                Log.d(TAG, "  result.patchNotes: " + (result.patchNotes != null ? "'" + result.patchNotes + "'" : "NULL"));
                 
                 return result;
                 

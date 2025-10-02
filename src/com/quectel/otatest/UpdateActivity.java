@@ -116,9 +116,18 @@ public class UpdateActivity extends Activity {
                             } else if (result.updateAvailable) {
                                 Log.i(TAG, "API confirms update available - enabling installation");
                                 
+                                // Debug the API result before assignment
+                                Log.d(TAG, "API result.packageUrl: " + (result.packageUrl != null ? result.packageUrl : "NULL"));
+                                Log.d(TAG, "API result.newBuildId: " + (result.newBuildId != null ? result.newBuildId : "NULL"));
+                                Log.d(TAG, "API result.patchNotes: " + (result.patchNotes != null ? result.patchNotes : "NULL"));
+                                
                                 // Store update information for download
                                 updatePackageUrl = result.packageUrl;
                                 newBuildId = result.newBuildId;
+                                
+                                // Verify assignment worked
+                                Log.d(TAG, "After assignment - updatePackageUrl: " + (updatePackageUrl != null ? updatePackageUrl : "NULL"));
+                                Log.d(TAG, "After assignment - newBuildId: " + (newBuildId != null ? newBuildId : "NULL"));
                                 
                                 statusText.setText("Update Available!\n\nNew build: " + newBuildId + "\n\n" + 
                                     (result.patchNotes != null ? result.patchNotes : "A new OTA update is ready to install."));
@@ -172,6 +181,10 @@ public class UpdateActivity extends Activity {
             public void run() {
                 try {
                     Log.d(TAG, "Starting download process");
+                    Log.d(TAG, "updatePackageUrl state: " + (updatePackageUrl != null ? updatePackageUrl : "NULL"));
+                    Log.d(TAG, "newBuildId state: " + (newBuildId != null ? newBuildId : "NULL"));
+                    Log.d(TAG, "isUpdateAvailable state: " + isUpdateAvailable);
+                    
                     mainHandler.post(new Runnable() {
                         @Override
                         public void run() {
@@ -187,6 +200,7 @@ public class UpdateActivity extends Activity {
                         Log.d(TAG, "Using API download URL: " + downloadUrl);
                     } else {
                         Log.e(TAG, "No package URL available from API response");
+                        Log.e(TAG, "This indicates the API check didn't properly set updatePackageUrl");
                         throw new RuntimeException("No package URL available");
                     }
                     
