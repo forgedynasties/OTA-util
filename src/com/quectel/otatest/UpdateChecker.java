@@ -6,7 +6,7 @@ import android.util.Log;
 public class UpdateChecker {
     private static final String TAG = "UpdateChecker";
     private static String cachedBuildId = null;
-    private static OtaApiClient.UpdateResponse lastUpdateResponse = null;
+    private static OTAApiClient.UpdateResponse lastUpdateResponse = null;
     
     /**
      * Get the current build ID for this device
@@ -44,7 +44,7 @@ public class UpdateChecker {
         Log.i(TAG, "=== Starting Update Check (Legacy Method) ===");
         Log.d(TAG, "This method now uses the new REST API internally");
         
-        OtaApiClient.UpdateResponse response = checkForUpdate();
+        OTAApiClient.UpdateResponse response = checkForUpdate();
         if (response != null) {
             boolean updateAvailable = response.isUpdateAvailable();
             Log.i(TAG, "Legacy method returning: " + updateAvailable);
@@ -59,15 +59,15 @@ public class UpdateChecker {
      * Check for updates using the new REST API
      * @return UpdateResponse object with full update information, or null if request failed
      */
-    public static OtaApiClient.UpdateResponse checkForUpdate() {
+    public static OTAApiClient.UpdateResponse checkForUpdate() {
         Log.i(TAG, "=== Starting Full Update Check ===");
         
         String currentBuildId = getCurrentBuildId();
         Log.i(TAG, "Current Build ID: " + currentBuildId);
-        Log.d(TAG, "Calling OtaApiClient.checkForUpdate()...");
+        Log.d(TAG, "Calling OTAApiClient.checkForUpdate()...");
         
         long startTime = System.currentTimeMillis();
-        OtaApiClient.UpdateResponse response = OtaApiClient.checkForUpdate(currentBuildId);
+        OTAApiClient.UpdateResponse response = OTAApiClient.checkForUpdate(currentBuildId);
         long duration = System.currentTimeMillis() - startTime;
         
         if (response != null) {
@@ -107,7 +107,7 @@ public class UpdateChecker {
      * Get the last update response (cached)
      * @return The last UpdateResponse, or null if no check has been performed
      */
-    public static OtaApiClient.UpdateResponse getLastUpdateResponse() {
+    public static OTAApiClient.UpdateResponse getLastUpdateResponse() {
         Log.d(TAG, "Returning cached update response: " + (lastUpdateResponse != null ? lastUpdateResponse.status : "null"));
         return lastUpdateResponse;
     }

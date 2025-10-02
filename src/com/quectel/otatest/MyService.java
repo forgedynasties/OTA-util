@@ -187,7 +187,7 @@ public class MyService extends Service {
                 
                 try {
                     Log.i(TAG, "Initiating API-based update check...");
-                    OtaApiClient.UpdateResponse response = UpdateChecker.checkForUpdate();
+                    OTAApiClient.UpdateResponse response = UpdateChecker.checkForUpdate();
                     
                     long checkDuration = System.currentTimeMillis() - checkStartTime;
                     Log.i(TAG, "Update check completed in " + checkDuration + "ms");
@@ -237,7 +237,7 @@ public class MyService extends Service {
     /**
      * Show notification when update is available
      */
-    private void showUpdateAvailableNotification(OtaApiClient.UpdateResponse response) {
+    private void showUpdateAvailableNotification(OTAApiClient.UpdateResponse response) {
         Log.i(TAG, "=== Creating Update Available Notification ===");
         Log.i(TAG, "📦 Update Package URL: " + response.getFullPackageUrl());
         Log.i(TAG, "🔄 New Build ID: " + response.buildId);

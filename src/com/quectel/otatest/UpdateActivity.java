@@ -117,7 +117,7 @@ public class UpdateActivity extends Activity {
                     Log.d(TAG, "Background thread started for API update check");
                     Log.i(TAG, "Current Build ID: " + UpdateChecker.getCurrentBuildId());
                     
-                    final OtaApiClient.UpdateResponse response = UpdateChecker.checkForUpdate();
+                    final OTAApiClient.UpdateResponse response = UpdateChecker.checkForUpdate();
                     Log.d(TAG, "API update check completed");
                     
                     mainHandler.post(new Runnable() {

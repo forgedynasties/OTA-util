@@ -62,7 +62,7 @@ public class MainActivity extends Activity {
                 
                 try {
                     Log.i(TAG, "Calling UpdateChecker.checkForUpdate()...");
-                    final OtaApiClient.UpdateResponse response = UpdateChecker.checkForUpdate();
+                    final OTAApiClient.UpdateResponse response = UpdateChecker.checkForUpdate();
                     
                     long duration = System.currentTimeMillis() - startTime;
                     Log.i(TAG, "Manual update check completed in " + duration + "ms");

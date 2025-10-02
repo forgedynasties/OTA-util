@@ -11,8 +11,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-public class OtaApiClient {
-    private static final String TAG = "OtaApiClient";
+public class OTAApiClient {
+    private static final String TAG = "OTAApiClient";
     private static final String BASE_URL = "http://10.32.1.11:8000";
     private static final String CHECK_UPDATE_ENDPOINT = "/api/check-update";
     private static final int TIMEOUT_MS = 10000; // 10 seconds
