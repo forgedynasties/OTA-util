@@ -177,6 +177,7 @@ public class MyService extends Service {
     private void checkForUpdates() {
         Log.i(TAG, "=== Starting Update Check Process ===");
         Log.d(TAG, "Creating background thread for update check...");
+        Log.i(TAG, "Current Build ID: " + UpdateChecker.getCurrentBuildId());
         
         new Thread(new Runnable() {
             @Override
@@ -185,24 +186,45 @@ public class MyService extends Service {
                 long checkStartTime = System.currentTimeMillis();
                 
                 try {
-                    Log.i(TAG, "Initiating server connectivity check...");
-                    boolean updateAvailable = UpdateChecker.checkUpdateExists();
+                    Log.i(TAG, "Initiating API-based update check...");
+                    OTAApiClient.UpdateResponse response = UpdateChecker.checkForUpdate();
                     
                     long checkDuration = System.currentTimeMillis() - checkStartTime;
-                    Log.d(TAG, "Update check completed in " + checkDuration + "ms");
+                    Log.i(TAG, "Update check completed in " + checkDuration + "ms");
                     
-                    if (updateAvailable) {
-                        Log.i(TAG, "✓ UPDATE AVAILABLE - Notifying user");
-                        showUpdateAvailableNotification();
+                    if (response != null) {
+                        Log.i(TAG, "=== Service Update Check Results ===");
+                        Log.i(TAG, "API Status: " + response.status);
+                        Log.i(TAG, "Build ID: " + response.buildId);
+                        Log.i(TAG, "Package URL: " + response.packageUrl);
+                        
+                        if (response.isUpdateAvailable()) {
+                            Log.i(TAG, "✓ UPDATE AVAILABLE - Preparing user notification");
+                            Log.i(TAG, "📦 Download URL will be: " + response.getFullPackageUrl());
+                            Log.i(TAG, "🔄 New Build: " + response.buildId);
+                            Log.i(TAG, "📝 Patch Notes: " + response.patchNotes);
+                            showUpdateAvailableNotification(response);
+                        } else if (response.isUpToDate()) {
+                            Log.i(TAG, "✅ System is up to date - No update needed");
+                            showNoUpdateNotification();
+                        } else if (response.isError()) {
+                            Log.w(TAG, "❌ Server returned error: " + response.message);
+                            showUpdateCheckErrorNotification("Server Error: " + response.message);
+                        } else {
+                            Log.w(TAG, "⚠️ Unexpected status: " + response.status);
+                            showUpdateCheckErrorNotification("Unexpected response: " + response.status);
+                        }
+                        Log.i(TAG, "=================================");
                     } else {
-                        Log.i(TAG, "✓ System is up to date - No update needed");
-                        showNoUpdateNotification();
+                        Log.e(TAG, "❌ Update check failed - API returned null response");
+                        showUpdateCheckErrorNotification("API request failed");
                     }
                 } catch (Exception e) {
                     long checkDuration = System.currentTimeMillis() - checkStartTime;
                     Log.e(TAG, "Update check failed after " + checkDuration + "ms: " + e.getMessage(), e);
                     Log.e(TAG, "Exception class: " + e.getClass().getName());
-                    showUpdateCheckErrorNotification();
+                    Log.e(TAG, "Stack trace:", e);
+                    showUpdateCheckErrorNotification("Exception: " + e.getMessage());
                 }
                 
                 Log.d(TAG, "Update check thread completed");
@@ -215,8 +237,11 @@ public class MyService extends Service {
     /**
      * Show notification when update is available
      */
-    private void showUpdateAvailableNotification() {
+    private void showUpdateAvailableNotification(OTAApiClient.UpdateResponse response) {
         Log.i(TAG, "=== Creating Update Available Notification ===");
+        Log.i(TAG, "📦 Update Package URL: " + response.getFullPackageUrl());
+        Log.i(TAG, "🔄 New Build ID: " + response.buildId);
+        Log.i(TAG, "📝 Patch Notes: " + response.patchNotes);
         
         NotificationManager notificationManager = 
             (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -227,7 +252,12 @@ public class MyService extends Service {
             try {
                 Intent updateIntent = new Intent(this, UpdateActivity.class);
                 updateIntent.putExtra("update_available", true);
-                Log.d(TAG, "Created intent for UpdateActivity with update_available=true");
+                updateIntent.putExtra("download_url", response.getFullPackageUrl());
+                updateIntent.putExtra("build_id", response.buildId);
+                updateIntent.putExtra("patch_notes", response.patchNotes);
+                Log.d(TAG, "Created intent for UpdateActivity with update info");
+                Log.d(TAG, "Intent extras - download_url: " + response.getFullPackageUrl());
+                Log.d(TAG, "Intent extras - build_id: " + response.buildId);
                 
                 int flags = PendingIntent.FLAG_UPDATE_CURRENT;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -319,29 +349,55 @@ public class MyService extends Service {
     /**
      * Show notification when update check fails
      */
-    private void showUpdateCheckErrorNotification() {
+    private void showUpdateCheckErrorNotification(String errorMessage) {
+        Log.i(TAG, "=== Creating Update Check Error Notification ===");
+        Log.e(TAG, "Error message: " + errorMessage);
+        
         NotificationManager notificationManager = 
             (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         
         if (notificationManager != null) {
-            Notification.Builder builder;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                builder = new Notification.Builder(this, CHANNEL_ID);
-            } else {
-                builder = new Notification.Builder(this);
+            Log.d(TAG, "NotificationManager obtained for error notification");
+            
+            try {
+                Notification.Builder builder;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    builder = new Notification.Builder(this, CHANNEL_ID);
+                    Log.d(TAG, "Using notification builder with channel: " + CHANNEL_ID);
+                } else {
+                    builder = new Notification.Builder(this);
+                    Log.d(TAG, "Using legacy notification builder");
+                }
+
+                String contentText = errorMessage != null ? errorMessage : "Could not check for updates. Please try again later.";
+                builder.setContentTitle("Update Check Failed")
+                        .setContentText(contentText)
+                        .setSmallIcon(R.drawable.easyftptest)
+                        .setAutoCancel(true);
+                        
+                Log.d(TAG, "Error notification content set: " + contentText);
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                    builder.setPriority(Notification.PRIORITY_DEFAULT);
+                    Log.d(TAG, "Set notification priority to DEFAULT");
+                }
+
+                int errorNotificationId = NOTIFICATION_ID + 4;
+                notificationManager.notify(errorNotificationId, builder.build());
+                Log.i(TAG, "✓ Error notification displayed (ID: " + errorNotificationId + ")");
+                
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to create error notification: " + e.getMessage(), e);
             }
-
-            builder.setContentTitle("Update Check Failed")
-                    .setContentText("Could not check for updates. Please try again later.")
-                    .setSmallIcon(R.drawable.easyftptest)
-                    .setAutoCancel(true);
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-                builder.setPriority(Notification.PRIORITY_DEFAULT);
-            }
-
-            notificationManager.notify(NOTIFICATION_ID + 4, builder.build());
-            Log.d(TAG, "Update check error notification displayed");
+        } else {
+            Log.e(TAG, "NotificationManager is null - cannot show error notification");
         }
+    }
+    
+    /**
+     * Show notification when update check fails (legacy method)
+     */
+    private void showUpdateCheckErrorNotification() {
+        showUpdateCheckErrorNotification(null);
     }
 }

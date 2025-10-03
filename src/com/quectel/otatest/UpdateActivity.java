@@ -17,7 +17,7 @@ import android.widget.Toast;
 
 public class UpdateActivity extends Activity {
     private static final String TAG = "UpdateActivity";
-    private static final String UPDATE_URL = "http://10.32.1.11:8080/update.zip";
+    private static final String FALLBACK_UPDATE_URL = "http://10.32.1.11:8080/update.zip"; // Fallback URL if API doesn't provide one
     
     private TextView statusText;
     private Button installButton;
@@ -79,14 +79,34 @@ public class UpdateActivity extends Activity {
         isUpdateAvailable = getIntent().getBooleanExtra("update_available", false);
         Log.d(TAG, "Intent extra 'update_available': " + isUpdateAvailable);
         
-        if (isUpdateAvailable) {
-            Log.i(TAG, "Update available from intent - configuring UI for installation");
-            statusText.setText("Update Available!\n\nA new OTA update is ready to install. This will update your system to the latest version.");
+        // Check for update details passed from other activities
+        String downloadUrl = getIntent().getStringExtra("download_url");
+        String buildId = getIntent().getStringExtra("build_id");
+        String patchNotes = getIntent().getStringExtra("patch_notes");
+        
+        Log.d(TAG, "Intent extras received:");
+        Log.d(TAG, "- download_url: " + downloadUrl);
+        Log.d(TAG, "- build_id: " + buildId);
+        Log.d(TAG, "- patch_notes: " + patchNotes);
+        
+        if (isUpdateAvailable && downloadUrl != null) {
+            Log.i(TAG, "Update available from intent with download URL - configuring UI");
+            Log.i(TAG, "📦 Download URL: " + downloadUrl);
+            Log.i(TAG, "🔄 Build ID: " + buildId);
+            
+            String statusMessage = "Update Available!\n\n";
+            statusMessage += "New Build: " + (buildId != null ? buildId : "Unknown") + "\n";
+            if (patchNotes != null && !patchNotes.isEmpty()) {
+                statusMessage += "\nPatch Notes:\n" + patchNotes;
+            }
+            statusMessage += "\n\nReady to install the latest version.";
+            
+            statusText.setText(statusMessage);
             installButton.setText("Install Update");
             installButton.setEnabled(true);
-            Log.d(TAG, "UI configured for available update");
+            Log.d(TAG, "UI configured for available update with details");
         } else {
-            Log.i(TAG, "No update info from intent - performing server check");
+            Log.i(TAG, "No complete update info - performing API server check");
             statusText.setText("Checking for updates...");
             installButton.setEnabled(false);
             Log.d(TAG, "UI set to checking state");
@@ -94,26 +114,67 @@ public class UpdateActivity extends Activity {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    Log.d(TAG, "Background thread started for update check");
+                    Log.d(TAG, "Background thread started for API update check");
+                    Log.i(TAG, "Current Build ID: " + UpdateChecker.getCurrentBuildId());
                     
-                    final boolean available = UpdateChecker.checkUpdateExists();
-                    Log.d(TAG, "Server check result: " + available);
+                    final OTAApiClient.UpdateResponse response = UpdateChecker.checkForUpdate();
+                    Log.d(TAG, "API update check completed");
                     
                     mainHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            Log.d(TAG, "Updating UI with server check results");
+                            Log.d(TAG, "Updating UI with API check results");
                             
-                            if (available) {
-                                Log.i(TAG, "Server confirms update available - enabling installation");
-                                statusText.setText("Update Available!\n\nA new OTA update is ready to install.");
-                                installButton.setText("Install Update");
-                                installButton.setEnabled(true);
-                                isUpdateAvailable = true;
+                            if (response != null) {
+                                Log.i(TAG, "=== UpdateActivity API Results ===");
+                                Log.i(TAG, "Status: " + response.status);
+                                Log.i(TAG, "Build ID: " + response.buildId);
+                                Log.i(TAG, "Package URL: " + response.packageUrl);
+                                Log.i(TAG, "Download URL: " + response.getFullPackageUrl());
+                                Log.i(TAG, "Patch Notes: " + response.patchNotes);
+                                
+                                if (response.isUpdateAvailable()) {
+                                    Log.i(TAG, "🎉 API confirms update available - enabling installation");
+                                    Log.i(TAG, "📦 Download URL: " + response.getFullPackageUrl());
+                                    
+                                    String statusMessage = "Update Available!\n\n";
+                                    statusMessage += "New Build: " + response.buildId + "\n";
+                                    if (response.patchNotes != null && !response.patchNotes.isEmpty()) {
+                                        statusMessage += "\nPatch Notes:\n" + response.patchNotes;
+                                    }
+                                    statusMessage += "\n\nReady to install the latest version.";
+                                    
+                                    statusText.setText(statusMessage);
+                                    installButton.setText("Install Update");
+                                    installButton.setEnabled(true);
+                                    isUpdateAvailable = true;
+                                    
+                                    // Store update info for download process
+                                    getIntent().putExtra("download_url", response.getFullPackageUrl());
+                                    getIntent().putExtra("build_id", response.buildId);
+                                    getIntent().putExtra("patch_notes", response.patchNotes);
+                                    
+                                } else if (response.isUpToDate()) {
+                                    Log.i(TAG, "✅ API confirms system is up to date");
+                                    statusText.setText("No Update Available\n\nYour system is up to date.");
+                                    installButton.setText("Check Again");
+                                    installButton.setEnabled(true);
+                                } else if (response.isError()) {
+                                    Log.w(TAG, "❌ API returned error: " + response.message);
+                                    statusText.setText("Update Check Failed\n\n" + response.message);
+                                    installButton.setText("Retry");
+                                    installButton.setEnabled(true);
+                                } else {
+                                    Log.w(TAG, "⚠️ Unexpected API status: " + response.status);
+                                    statusText.setText("Unexpected Response\n\n" + response.status);
+                                    installButton.setText("Retry");
+                                    installButton.setEnabled(true);
+                                }
+                                Log.i(TAG, "=================================");
                             } else {
-                                Log.i(TAG, "Server confirms no update - system is current");
-                                statusText.setText("No Update Available\n\nYour system is up to date.");
-                                installButton.setText("Check Again");
+                                Log.e(TAG, "❌ API check failed - null response");
+                                statusText.setText("Update Check Failed\n\nCould not connect to server. Please check your connection and try again.");
+                                installButton.setText("Retry");
                                 installButton.setEnabled(true);
                             }
                         }
@@ -152,7 +213,19 @@ public class UpdateActivity extends Activity {
             @Override
             public void run() {
                 try {
-                    Log.d(TAG, "Starting download process");
+                    Log.i(TAG, "=== Starting Update Download Process ===");
+                    
+                    // Get download URL from intent or use fallback
+                    String downloadUrl = getIntent().getStringExtra("download_url");
+                    if (downloadUrl == null || downloadUrl.isEmpty()) {
+                        Log.w(TAG, "No download URL in intent, using fallback URL");
+                        downloadUrl = FALLBACK_UPDATE_URL; // Fallback to old URL
+                    }
+                    
+                    Log.i(TAG, "📦 Download URL: " + downloadUrl);
+                    Log.i(TAG, "📂 Target file: /data/ota_package/update.zip");
+                    Log.i(TAG, "🔄 Build ID: " + getIntent().getStringExtra("build_id"));
+                    
                     mainHandler.post(new Runnable() {
                         @Override
                         public void run() {
@@ -162,11 +235,16 @@ public class UpdateActivity extends Activity {
                     });
                     
                     // Create DownloadManager instance and start download
+                    Log.d(TAG, "Creating DownloadManager instance...");
                     DownloadManager downloadManager = new DownloadManager();
-                    boolean downloadSuccess = downloadManager.downloadFile(UPDATE_URL, "/data/ota_package/update.zip", 
+                    
+                    Log.i(TAG, "Starting download from: " + downloadUrl);
+                    final String finalDownloadUrl = downloadUrl;
+                    boolean downloadSuccess = downloadManager.downloadFile(downloadUrl, "/data/ota_package/update.zip", 
                         new DownloadManager.DownloadCallback() {
                             @Override
                             public void onProgress(final int progress) {
+                                Log.v(TAG, "Download progress: " + progress + "% from " + finalDownloadUrl);
                                 mainHandler.post(new Runnable() {
                                     @Override
                                     public void run() {
@@ -178,7 +256,11 @@ public class UpdateActivity extends Activity {
                             
                             @Override
                             public void onSuccess() {
-                                Log.d(TAG, "Download completed successfully");
+                                Log.i(TAG, "✅ Download completed successfully!");
+                                Log.i(TAG, "📦 Downloaded from: " + finalDownloadUrl);
+                                Log.i(TAG, "📂 Saved to: /data/ota_package/update.zip");
+                                Log.i(TAG, "🔄 Build ID: " + getIntent().getStringExtra("build_id"));
+                                
                                 mainHandler.post(new Runnable() {
                                     @Override
                                     public void run() {
@@ -188,6 +270,7 @@ public class UpdateActivity extends Activity {
                                 });
                                 
                                 // Wait a moment then start installation
+                                Log.d(TAG, "Scheduling installation start in 1 second...");
                                 mainHandler.postDelayed(new Runnable() {
                                     @Override
                                     public void run() {
@@ -198,7 +281,8 @@ public class UpdateActivity extends Activity {
                             
                             @Override
                             public void onError(final String error) {
-                                Log.e(TAG, "Download failed: " + error);
+                                Log.e(TAG, "❌ Download failed from: " + finalDownloadUrl);
+                                Log.e(TAG, "Error details: " + error);
                                 mainHandler.post(new Runnable() {
                                     @Override
                                     public void run() {
