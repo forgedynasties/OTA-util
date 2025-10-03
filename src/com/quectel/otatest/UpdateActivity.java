@@ -482,7 +482,7 @@ public class UpdateActivity extends Activity {
     }
     
     /**
-     * Perform device reboot using shell command
+     * Perform device reboot using PowerManager
      */
     private void performReboot() {
         Log.i(TAG, "=== Initiating Device Reboot ===");
@@ -491,44 +491,36 @@ public class UpdateActivity extends Activity {
             // Show reboot countdown
             final ProgressDialog rebootDialog = new ProgressDialog(this);
             rebootDialog.setTitle("Rebooting Device");
-            rebootDialog.setMessage("Device will reboot in 5 seconds...");
+            rebootDialog.setMessage("Device will reboot in 3 seconds...");
             rebootDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-            rebootDialog.setMax(5);
+            rebootDialog.setMax(3);
             rebootDialog.setCancelable(false);
             rebootDialog.show();
             
             // Countdown before reboot
             final Handler countdownHandler = new Handler(Looper.getMainLooper());
-            for (int i = 0; i < 5; i++) {
-                final int countdown = 5 - i;
+            for (int i = 0; i < 3; i++) {
+                final int countdown = 3 - i;
                 countdownHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        rebootDialog.setProgress(5 - countdown);
+                        rebootDialog.setProgress(3 - countdown);
                         rebootDialog.setMessage("Device will reboot in " + countdown + " seconds...");
                         
                         if (countdown == 0) {
                             rebootDialog.setMessage("Rebooting now...");
-                            Log.i(TAG, "Executing reboot command");
+                            Log.i(TAG, "Executing PowerManager reboot");
                             
-                            // Execute reboot command
-                            new Thread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        String rebootResult = shellManager.executeCommand("reboot");
-                                        Log.d(TAG, "Reboot command result: " + rebootResult);
-                                    } catch (Exception e) {
-                                        Log.e(TAG, "Failed to execute reboot command: " + e.getMessage(), e);
-                                        // Fallback reboot methods
-                                        try {
-                                            Runtime.getRuntime().exec("su -c reboot");
-                                        } catch (Exception ex) {
-                                            Log.e(TAG, "Fallback reboot also failed: " + ex.getMessage(), ex);
-                                        }
-                                    }
-                                }
-                            }).start();
+                            // Use PowerManager for reliable reboot
+                            try {
+                                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                                pm.reboot("OTA Update Complete");
+                            } catch (Exception e) {
+                                Log.e(TAG, "Failed to reboot device", e);
+                                rebootDialog.dismiss();
+                                statusText.setText("Update Installation Complete!\n\nFailed to reboot automatically. Please reboot manually to complete the installation.");
+                                Toast.makeText(UpdateActivity.this, "Failed to reboot. Please reboot manually.", Toast.LENGTH_LONG).show();
+                            }
                         }
                     }
                 }, i * 1000);
